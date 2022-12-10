@@ -5,6 +5,9 @@ import java.util.*;
 
 public class Servidor{
 
+    private InetAddress ip;
+
+
 public Servidor() throws IOException {
     Database db = new Database();
     System.out.println("Servidor Criado");
@@ -35,6 +38,7 @@ public Servidor() throws IOException {
         //DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
         //socket.send(response);
     }
+
 }
 
 public void answerCliente(List neighbours,DatagramSocket socket, InetAddress clientAddress, int clientPort){
@@ -57,5 +61,9 @@ public static void main(String argv[]) throws Exception{
     Servidor s = new Servidor();
 }
 
+
+public void overlay(){
+
+}
  
 }
