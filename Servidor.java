@@ -24,12 +24,12 @@ public class Servidor{
     private ReentrantLock lockNodosRede = new ReentrantLock();
 
     private Condition condNodos = lockNodosRede.newCondition();
-    Database database = new Database();
+
 
 
     public Servidor() throws IOException {
         //this.ip = inetAddress;
-
+        Database database = new Database();
         this.socket = new DatagramSocket(1234, this.ip);
         /*this.socketActivate = new DatagramSocket(5678, this.ip);
         this.socketOverlay = new DatagramSocket(4321, this.ip);*/
@@ -99,8 +99,12 @@ public class Servidor{
 
         }).start();
 
-        new Thread(() -> { //
+        new Thread(() -> { //Activar and desativar nodos
             try {
+
+                byte[] inData = new byte[512];
+
+                DatagramPacket receivePkt = new DatagramPacket(inData, inData.length); // Recebe packet a dizer qual o custo
 
                 while (true) {
 
