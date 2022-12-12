@@ -19,6 +19,11 @@ public class Database {
     
     }
 
+    public List<InetAddress> getAllNodos(){
+
+        return new ArrayList<>(configFile.keySet());
+    }
+
      // Parser
 
   public void parser(String path) throws IOException {

@@ -1,20 +1,243 @@
+import jdk.internal.misc.InternalLock;
+
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.io.*;
-import java.net.*;
-import java.awt.*;
-import java.util.*;
-import java.awt.event.*;
 import java.util.List;
-import javax.swing.*;
-import javax.swing.Timer;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Servidor{
 
     private InetAddress ip;
-/*
+
+    private DatagramSocket socket;
+    private DatagramSocket socketFlood;
+    private DatagramSocket socketActivate;
+    private DatagramSocket socketOverlay;
+
+    private ReentrantLock lock = new ReentrantLock();
+    private Map<InetAddress,Integer> tabelaEstado = new HashMap<>(); // tabela de encaminhamento de cada nodo || 1 - ativo || 0- desativado
+
+    private List<InetAddress> nodosRede = new ArrayList<>();
+    private ReentrantLock lockNodosRede = new ReentrantLock();
+
+    private Condition condNodos = lockNodosRede.newCondition();
+    Database database = new Database();
+
+
+    public Servidor() throws IOException {
+        //this.ip = inetAddress;
+
+        this.socket = new DatagramSocket(1234, this.ip);
+        /*this.socketActivate = new DatagramSocket(5678, this.ip);
+        this.socketOverlay = new DatagramSocket(4321, this.ip);*/
+
+        // Thread Criacao do Overlay
+        new Thread(() -> { //thread que se vai encarregar de receber novos nodos e de lhe dar os seus vizinhos (initOverlay)
+            try {
+                List<InetAddress> vizinhos = database.getNeighbours(this.ip);
+
+                for (InetAddress x : vizinhos) {
+                    tabelaEstado.put(x, 0); // Inicialmente todos os nodos estão desativados
+
+                }
+                try {
+                    lockNodosRede.lock();
+                    nodosRede.add(this.ip);
+                } finally {
+                    lockNodosRede.unlock();
+                }
+                while (true) {
+
+                    byte[] msg = new byte[512];
+                    DatagramPacket receiveP = new DatagramPacket(msg, msg.length);
+                    socket.receive(receiveP);
+
+                    //parseFile();
+
+                    msg = receiveP.getData();
+                    Packet p = new Packet(msg);
+                    InetAddress nodeAdr = receiveP.getAddress();
+                    ///////////////////////////////////////////////////////////////////////
+                    if (p.getMsgType() == 2) {//msg de pedir vizinhos(overlay)
+
+                        System.out.println("Nodo " + nodeAdr + "lido!");
+
+                        try {
+                            lockNodosRede.lock();
+                            nodosRede.add(nodeAdr);
+                        } finally {
+                            lockNodosRede.unlock();
+                        }
+
+                        try {
+                            lockNodosRede.lock();
+
+                            if (nodosRede.containsAll(database.getAllNodos())) {//1 vez
+                                condNodos.signalAll();
+                                System.out.println("A Iniciar Flood!");
+                            }
+                        } finally{
+                            lockNodosRede.unlock();
+                        }
+
+                        List<InetAddress> listaVizinhos = database.getNeighbours(nodeAdr);
+
+                        Packet send = new Packet(4,0, listaVizinhos); //MSG tipo 4 -> Sv envia vizinhos
+
+                        DatagramPacket pktResponse = new DatagramPacket(send.serialize(), send.serialize().length, nodeAdr, 1234);
+                        socket.send(pktResponse);
+                    } else{
+                        tabelaEstado.put(nodeAdr,0);
+                    }/////////////////////////////////////////////////////////////////
+                }
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+        }).start();
+
+        new Thread(() -> { //
+            try {
+
+                while (true) {
+
+                    byte[] msg = new byte[512];
+                    DatagramPacket receiveP = new DatagramPacket(msg, msg.length);
+                    socket.receive(receiveP);
+
+                    //parseFile();
+
+                    msg = receiveP.getData();
+                    Packet p = new Packet(msg);
+                    InetAddress nodeAdr = receiveP.getAddress();
+                    ///////////////////////////////////////////////////////////////////////
+                    if (p.getMsgType() == 1) {//activate msg
+
+                        try {
+                            lock.lock();
+
+                            if (tabelaEstado.get(nodeAdr).equals(0)) {
+                                tabelaEstado.put(nodeAdr,1);
+
+                                /*if(!prunning) {
+                                    prunning = true;
+                                    System.out.println("STREAM INICIADA!");
+                                    this.addressStream = address;
+                                    stream.start();
+
+                                }*/
+                            }
+                        } finally {
+                            lock.unlock();
+                        }
+                        System.out.println("Nodo " + nodeAdr + "está Ativo!");
+
+                    } else if (p.getMsgType() == 5) {//msg para sair da overlay (DESATIVAR NODO)
+
+                        tabelaEstado.put(nodeAdr,0);
+                        System.out.println("Nodo " + nodeAdr + "foi Desativado!");
+
+                    } else {
+                        System.out.println("Erro!");
+                    }
+                }
+
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+
+        }).start();
+
+        new Thread(() -> { //Thread encarregue de fazer flood para a rede para determinar as tabelas de encaminhamento
+            try {
+                try {
+                    lockNodosRede.lock();
+
+                    while (!nodosRede.containsAll(database.getAllNodos()))
+                        condNodos.await();  //A thread fica adormecida enquanto não temos todos os nodos
+
+                } finally{
+                    lockNodosRede.unlock();
+                }
+                while (true) {
+                    Thread.sleep(50);
+                    System.out.println("Flood Iniciado!");
+
+                    List<InetAddress> vizinhos = database.getNeighbours(this.ip);
+
+                    for (InetAddress x : vizinhos) {
+
+                        Packet msg = new Packet(3, 1,null);//custo 1 msg de FLOOD
+
+                        DatagramPacket pResponse = new DatagramPacket(msg.serialize(), msg.serialize().length, x, 1234);
+                        socketFlood.send(pResponse);
+                    }
+                    Thread.sleep(20000);
+                }
+            } catch(Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+
+
+    /*public Servidor() throws IOException {
+        Database db = new Database();
+        System.out.println("Servidor Criado");
+
+        DatagramSocket socket;
+        InetAddress address;
+        int port;
+        byte message;
+        InetAddress clientAddress;
+        int clientPort;
+
+        address =InetAddress.getByName("172.16.0.20");
+        port = 3000;
+        socket = new DatagramSocket(port,address);
+        System.out.println("Server listening on " + address + " port: " + port);
+
+        while (true) {
+            byte[] clienteBuffer = new byte[512];
+            DatagramPacket request = new DatagramPacket(clienteBuffer,clienteBuffer.length);
+            socket.receive(request);
+            clientAddress = request.getAddress();
+            clientPort = request.getPort();
+            String quote = new String(clienteBuffer, 0, request.getLength());
+            System.out.println("Client " + clientAddress.toString() + " says : " + quote);
+            List neighbours = db.getNeighbours(clientAddress);
+            answerCliente(neighbours, socket, clientAddress, clientPort);
+            //byte[] buffer = "Servidor Recebeu".getBytes(StandardCharsets.UTF_8);
+            //DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
+            //socket.send(response);
+        }
+
+    }
+
+    public void answerCliente(List neighbours,DatagramSocket socket, InetAddress clientAddress, int clientPort){
+        new Thread() {
+
+            public void run(){
+                byte[] buffer = neighbours.toString().getBytes(StandardCharsets.UTF_8);
+                DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
+                try {
+                    socket.send(response);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }.start();
+    }*/
+
+
+    public static void main(String argv[]) throws Exception{
+        Servidor s = new Servidor();
+    }
+
+    /*
     //GUI:
     //----------------
     JLabel label;
@@ -160,63 +383,7 @@ public class Servidor{
  */
 
 
-public Servidor() throws IOException {
-    Database db = new Database();
-    System.out.println("Servidor Criado");
 
-    DatagramSocket socket;
-    InetAddress address;
-    int port;
-    byte message;
-    InetAddress clientAddress;
-    int clientPort;
-
-    address =InetAddress.getByName("172.16.0.20");
-    port = 3000;
-    socket = new DatagramSocket(port,address);
-    System.out.println("Server listening on " + address + " port: " + port);
-
-    while (true) {
-        byte[] clienteBuffer = new byte[512];
-        DatagramPacket request = new DatagramPacket(clienteBuffer,clienteBuffer.length);
-        socket.receive(request);
-        clientAddress = request.getAddress();
-        clientPort = request.getPort();
-        String quote = new String(clienteBuffer, 0, request.getLength());
-        System.out.println("Client " + clientAddress.toString() + " says : " + quote);
-        List neighbours = db.getNeighbours(clientAddress);
-        answerCliente(neighbours, socket, clientAddress, clientPort);
-        //byte[] buffer = "Servidor Recebeu".getBytes(StandardCharsets.UTF_8);
-        //DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
-        //socket.send(response);
-    }
-
-}
-
-public void answerCliente(List neighbours,DatagramSocket socket, InetAddress clientAddress, int clientPort){
-    new Thread() {
-        
-        public void run(){
-            byte[] buffer = neighbours.toString().getBytes(StandardCharsets.UTF_8);
-            DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
-            try {
-                socket.send(response);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }.start();
-}
-
-
-public static void main(String argv[]) throws Exception{
-    Servidor s = new Servidor();
-}
-
-
-public void overlay(){
-
-}
 
 
  
