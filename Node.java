@@ -19,9 +19,9 @@ public class Node {
     protected DatagramSocket socketPingRouter;
 
 
-    public Node() throws IOException {
+    public Node(InetAddress ipserver) throws IOException {
 
-        this.socket = new DatagramSocket(1234, this.ip);
+        this.socket = new DatagramSocket(3000, this.ip);
         /*this.socketActivate = new DatagramSocket(5678, this.ip);
         this.socketOverlay = new DatagramSocket(4321, this.ip);
         this.socketPing = new DatagramSocket(8765, this.ip);
@@ -36,8 +36,11 @@ public class Node {
 
 
                 Packet p = new Packet(2,0,null);
+                System.out.println("PACKET DATA: " + p.getData());
 
-                DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, serverAddress, serverPort);
+                byte[] packetBytes = p.serialize();
+
+                DatagramPacket request = new DatagramPacket(packetBytes, packetBytes.length, ipserver, serverPort);
                 socket.send(request);
 
                 byte [] buffer = new byte[512];

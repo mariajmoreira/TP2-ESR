@@ -1,5 +1,3 @@
-import jdk.internal.misc.InternalLock;
-
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -29,8 +27,9 @@ public class Servidor{
 
     public Servidor() throws IOException {
         //this.ip = inetAddress;
-
-        this.socket = new DatagramSocket(1234, this.ip);
+        this.ip = InetAddress.getByName("172.16.0.20");
+        this.socket = new DatagramSocket(3000, this.ip);
+        System.out.println("server ip: " +  this.ip);
         /*this.socketActivate = new DatagramSocket(5678, this.ip);
         this.socketOverlay = new DatagramSocket(4321, this.ip);*/
 
@@ -55,6 +54,7 @@ public class Servidor{
                     DatagramPacket receiveP = new DatagramPacket(msg, msg.length);
                     socket.receive(receiveP);
 
+                    
                     //parseFile();
 
                     msg = receiveP.getData();
@@ -93,58 +93,6 @@ public class Servidor{
                         tabelaEstado.put(nodeAdr,0);
                     }/////////////////////////////////////////////////////////////////
                 }
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            }
-
-        }).start();
-
-        new Thread(() -> { //
-            try {
-
-                while (true) {
-
-                    byte[] msg = new byte[512];
-                    DatagramPacket receiveP = new DatagramPacket(msg, msg.length);
-                    socket.receive(receiveP);
-
-                    //parseFile();
-
-                    msg = receiveP.getData();
-                    Packet p = new Packet(msg);
-                    InetAddress nodeAdr = receiveP.getAddress();
-                    ///////////////////////////////////////////////////////////////////////
-                    if (p.getMsgType() == 1) {//activate msg
-
-                        try {
-                            lock.lock();
-
-                            if (tabelaEstado.get(nodeAdr).equals(0)) {
-                                tabelaEstado.put(nodeAdr,1);
-
-                                /*if(!prunning) {
-                                    prunning = true;
-                                    System.out.println("STREAM INICIADA!");
-                                    this.addressStream = address;
-                                    stream.start();
-
-                                }*/
-                            }
-                        } finally {
-                            lock.unlock();
-                        }
-                        System.out.println("Nodo " + nodeAdr + "está Ativo!");
-
-                    } else if (p.getMsgType() == 5) {//msg para sair da overlay (DESATIVAR NODO)
-
-                        tabelaEstado.put(nodeAdr,0);
-                        System.out.println("Nodo " + nodeAdr + "foi Desativado!");
-
-                    } else {
-                        System.out.println("Erro!");
-                    }
-                }
-
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -234,7 +182,7 @@ public class Servidor{
 
 
     public static void main(String argv[]) throws Exception{
-        Servidor s = new Servidor();
+      //  Servidor s = new Servidor();
     }
 
     /*
