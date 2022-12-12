@@ -22,7 +22,7 @@ public class Servidor{
     private ReentrantLock lockNodosRede = new ReentrantLock();
 
     private Condition condNodos = lockNodosRede.newCondition();
-    Database database = new Database();
+
 
 
     public Servidor() throws IOException {
@@ -30,6 +30,7 @@ public class Servidor{
         this.ip = InetAddress.getByName("172.16.0.20");
         this.socket = new DatagramSocket(3000, this.ip);
         System.out.println("server ip: " +  this.ip);
+        Database database = new Database();
         /*this.socketActivate = new DatagramSocket(5678, this.ip);
         this.socketOverlay = new DatagramSocket(4321, this.ip);*/
 

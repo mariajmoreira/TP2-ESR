@@ -45,7 +45,7 @@ public class oNode {
         //int port = Integer.parseInt(args[2]);
 
         if (args[0].equals("S")){
-            Servidor s = new Servidor();
+            Servidor s = new Servidor(InetAddress.getByName(ipserver));
         }
         else if (args[0].equals("C")) {
             //Cliente c = new Cliente(InetAddress.getByName(ipserver));

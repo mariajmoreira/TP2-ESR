@@ -4,12 +4,12 @@ import java.util.List;
 
 public class Packet implements Serializable{
 
-    private int msgType;//tipo de mensagem a enviar
+    private int msgType;//tipo de mensagem a enviar //0-> actualizar
     //1-> activate
     //2-> overlay
     //3->flood
-    //4->svenvia vizinhos
-    //5->clienbt disconnect
+    //4->sv envia vizinhos
+    //5->clienbt disconnect //?????????????
     private int data;
     private List<InetAddress> vizinhos;
 
