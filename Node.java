@@ -123,37 +123,37 @@ public class Node {
                             System.out.println("1 ITERACAO: Vou enviar para os meus vizinhos com custo : " + custo);
 
                             //envia msg aos seus vizinhos
-                            for (InetAddress inet : routing_table.keySet()) {
+                            for (InetAddress inet : tabelaCusto.keySet()) {
                                 if (!inet.equals(prev_node)) {
-                                    Packet msg = new Packet(1,custo+1,null);
+                                    Packet msg = new Packet(3,custo+1,null);
                                     byte[] dataResponse = msg.serialize();
-                                    DatagramPacket pktResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 1234);
+                                    DatagramPacket pktResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 3000);
                                     socketFlood.send(pktResponse);
                                 }
                             }
 
                         } else { //Vezes seguintes a chegar ao nodo
-                            int custo_anterior = cost_table.get(prev_node);
-                            if (custo <= custo_anterior) { //Atualizar o antecessor
+                            int custoAnterior = tabelaCusto.get(prev_node);
+                            if (custo <= custoAnterior) { //Atualizar o antecessor
                                 prev_node = origin;
                                 System.out.println("OUTRAS ITERAÇÕES: Vou enviar para os meus vizinhos com custo : " + custo);
 
                                 // envia msg aos seus vizinhos
-                                for (InetAddress inet : routing_table.keySet()) {
+                                for (InetAddress inet : tabelaCusto.keySet()) {
                                     if (!inet.equals(prev_node)) {
-                                        Packet msg1 = new Packet(1,custo+1,null);
+                                        Packet msg1 = new Packet(3,custo+1,null);
                                         byte[] dataResponse = msg1.serialize();
-                                        DatagramPacket pktResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 1234);
+                                        DatagramPacket pktResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 3000);
                                         socketFlood.send(pktResponse);
                                     }
                                 }
                             }
 
-                            if (cost_table.containsKey(origin)) { // Atualização do valor
-                                int custo_antigo_origem = cost_table.get(origin);
-                                if (custo_antigo_origem >= custo) cost_table.put(origin, custo);
+                            if (tabelaCusto.containsKey(origin)) { // Atualização do valor
+                                int custo_antigo_origem = tabelaCusto.get(origin);
+                                if (custo_antigo_origem >= custo) tabelaCusto.put(origin, custo);
                             } else { // Inserção do valor
-                                cost_table.put(origin, custo);
+                                tabelaCusto.put(origin, custo);
                             }
                         }
                     } else{
@@ -161,7 +161,7 @@ public class Node {
                     }
                 }
 
-            } catch (IOException | InterruptedException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }).start();
