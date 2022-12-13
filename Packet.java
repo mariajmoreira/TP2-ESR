@@ -10,7 +10,7 @@ public class Packet implements Serializable{
     //3->flood
     //4->sv envia vizinhos
     //5->clienbt disconnect //?????????????
-    private int data;
+    private int custo;
     private List<InetAddress> vizinhos;
 
     public Packet() {
@@ -21,7 +21,7 @@ public class Packet implements Serializable{
 
         try {
             Packet msg = deserialize(bytes);
-            this.data = msg.getData();
+            this.custo = msg.getCusto();
             this.msgType = msg.getMsgType();
             this.vizinhos = msg.getVizinhos();
         } catch (IOException | ClassNotFoundException e) {
@@ -35,8 +35,7 @@ public class Packet implements Serializable{
         ObjectOutput oo = new ObjectOutputStream(bStream);
         oo.writeObject(this);
         oo.close();
-        byte[] serializedMessage = bStream.toByteArray();
-        return serializedMessage;
+        return bStream.toByteArray();
     }
 
     public Packet deserialize(byte[] recBytes) throws IOException, ClassNotFoundException {
@@ -49,7 +48,7 @@ public class Packet implements Serializable{
 
     public Packet(int msgType, int data, List<InetAddress> vizinhos) {
         this.msgType = msgType;
-        this.data = data;
+        this.custo = data;
         this.vizinhos = vizinhos;
     }
 
@@ -61,12 +60,8 @@ public class Packet implements Serializable{
         this.msgType = msgType;
     }
 
-    public int getData() {
-        return data;
-    }
-
-    public void setData(int data) {
-        this.data = data;
+    public int getCusto() {
+        return custo;
     }
 
     public List<InetAddress> getVizinhos() {

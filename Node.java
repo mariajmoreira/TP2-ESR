@@ -22,7 +22,7 @@ public class Node {
 
     public Node(InetAddress ipserver) throws IOException {
 
-        this.socket = new DatagramSocket(3000, this.ip);
+        this.socket = new DatagramSocket(3000, ipserver);
         /*this.socketActivate = new DatagramSocket(5678, this.ip);
         this.socketOverlay = new DatagramSocket(4321, this.ip);
         this.socketPing = new DatagramSocket(8765, this.ip);
@@ -37,7 +37,7 @@ public class Node {
 
 
                 Packet p = new Packet(2,0,null);
-                System.out.println("PACKET DATA: " + p.getData());
+                //System.out.println("PACKET DATA: " + p.getData());
 
                 byte[] packetBytes = p.serialize();
 
@@ -57,17 +57,15 @@ public class Node {
 
                     tabelaEstado.put(x,0);
                     //ping_table.put(x,0); //caso ping para Cliente e Router
-                    System.out.println("vizinho " + x.toString());
 
-                    String msgNew = x.toString();
-
-                    System.out.println("Envia msg para " + msgNew);
+                    System.out.println("Vizinho " + x.toString());
+                    System.out.println("Envia msg para " + x.toString());
 
                     Packet pnew = new Packet(0,0,null);
                     byte[] dataNew = pnew.serialize();
 
-                    DatagramPacket newNode = new DatagramPacket(dataNew, dataNew.length, x,4321);
-                    socketOverlay.send(newNode);
+                    DatagramPacket newNode = new DatagramPacket(dataNew, dataNew.length, x,3000);
+                    socket.send(newNode);
 
                     Thread.sleep(50);
                 }
@@ -83,7 +81,7 @@ public class Node {
                     Packet pReceive = new Packet(data);
 
                     if(pReceive.getMsgType()==0) {//msg de atualizar overlay
-                        tabelaEstado.put(responseO.getAddress(), 0);
+                        tabelaEstado.put(responseO.getAddress(), 1);//ATIVA NODO <--------------------------
                     }
                 }
 
@@ -100,8 +98,6 @@ public class Node {
 
                 while(true) {
 
-                    System.out.println("Começar o flood!");
-
                     socketFlood.receive(receiveP);
                     //Thread.sleep(50);
 
@@ -110,54 +106,57 @@ public class Node {
 
                     if(p.getMsgType()==3){//flood msg
 
-                        InetAddress origin = receiveP.getAddress();
+                        System.out.println("Começar o flood!");
 
-                        int custo = p.getData();
+                        InetAddress nodoOrigem = receiveP.getAddress();
 
-                        System.out.println("Recebido : " + origin + " com custo : " + custo);
+                        int custo = p.getCusto();
+
+                        System.out.println("Recebido : " + nodoOrigem + " com custo : " + custo);
 
                         if (prev_node == null) { // 1ª iteração
-                            prev_node = origin;
-                            tabelaCusto.put(origin, custo); // Guardar na tabela de custos qual a origem e o custo a partir dessa origem
+                            prev_node = nodoOrigem;
+                            tabelaCusto.put(nodoOrigem, custo); // Guardar na tabela de custos qual a origem e o custo a partir dessa origem
 
-                            System.out.println("1 ITERACAO: Vou enviar para os meus vizinhos com custo : " + custo);
+                            System.out.println("ITERACAO 1: A enviar para vizinhos | custo : " + custo);
 
-                            //envia msg aos seus vizinhos
                             for (InetAddress inet : tabelaCusto.keySet()) {
-                                if (!inet.equals(prev_node)) {
-                                    Packet msg = new Packet(3,custo+1,null);
+                                if (!inet.equals(prev_node)) {//não enviar para o nodo anterior
+
+                                    Packet msg = new Packet(3,custo+1,null);//FLOOD MSG
                                     byte[] dataResponse = msg.serialize();
-                                    DatagramPacket pktResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 3000);
-                                    socketFlood.send(pktResponse);
+                                    DatagramPacket pResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 3000);
+                                    socket.send(pResponse);
                                 }
                             }
 
                         } else { //Vezes seguintes a chegar ao nodo
                             int custoAnterior = tabelaCusto.get(prev_node);
                             if (custo <= custoAnterior) { //Atualizar o antecessor
-                                prev_node = origin;
-                                System.out.println("OUTRAS ITERAÇÕES: Vou enviar para os meus vizinhos com custo : " + custo);
+                                prev_node = nodoOrigem;
+                                System.out.println("ITERAÇÃO X : A enviar para vizinhos | custo : " + custo);
 
                                 // envia msg aos seus vizinhos
                                 for (InetAddress inet : tabelaCusto.keySet()) {
                                     if (!inet.equals(prev_node)) {
+
                                         Packet msg1 = new Packet(3,custo+1,null);
                                         byte[] dataResponse = msg1.serialize();
                                         DatagramPacket pktResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 3000);
-                                        socketFlood.send(pktResponse);
+                                        socket.send(pktResponse);
                                     }
                                 }
                             }
 
-                            if (tabelaCusto.containsKey(origin)) { // Atualização do valor
-                                int custo_antigo_origem = tabelaCusto.get(origin);
-                                if (custo_antigo_origem >= custo) tabelaCusto.put(origin, custo);
+                            if (tabelaCusto.containsKey(nodoOrigem)) { // Atualização do valor
+                                int custoAntigo = tabelaCusto.get(nodoOrigem);
+                                if (custoAntigo >= custo) tabelaCusto.put(nodoOrigem, custo);
                             } else { // Inserção do valor
-                                tabelaCusto.put(origin, custo);
+                                tabelaCusto.put(nodoOrigem, custo);
                             }
                         }
                     } else{
-                        System.out.println("Recebeu mensagem do tipo errado (Client - Tipo 1 unico tipo aceite)");
+                        System.out.println("Erro! (msg não tipo 3 (flood)");
                     }
                 }
 

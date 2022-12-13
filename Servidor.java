@@ -76,7 +76,7 @@ public class Servidor{
                         try {
                             lockNodosRede.lock();
 
-                            if (nodosRede.containsAll(database.getAllNodos())) {//1 vez
+                            if (nodosRede.containsAll(database.getAllNodos())) {//1 vez | ?????????????????????????
                                 condNodos.signalAll();
                                 System.out.println("A Iniciar Flood!");
                             }
@@ -88,8 +88,8 @@ public class Servidor{
 
                         Packet send = new Packet(4,0, listaVizinhos); //MSG tipo 4 -> Sv envia vizinhos
 
-                        DatagramPacket pktResponse = new DatagramPacket(send.serialize(), send.serialize().length, nodeAdr, 1234);
-                        socket.send(pktResponse);
+                        DatagramPacket pResponse = new DatagramPacket(send.serialize(), send.serialize().length, nodeAdr, 3000);
+                        socket.send(pResponse);
                     } else{
                         tabelaEstado.put(nodeAdr,0);
                     }/////////////////////////////////////////////////////////////////
