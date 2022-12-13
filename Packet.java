@@ -9,9 +9,13 @@ public class Packet implements Serializable{
     //2-> overlay
     //3->flood
     //4->sv envia vizinhos
-    //5->clienbt disconnect //?????????????
+    //5->Pedir stream (percorre até ao sv)
+    //6-> router envia stream
+    //
     private int custo;
     private List<InetAddress> vizinhos;
+
+    private RTPpacket rtpPacket;
 
     public Packet() {
         this.msgType = 0;

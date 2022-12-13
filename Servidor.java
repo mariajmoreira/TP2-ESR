@@ -1,17 +1,32 @@
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.WindowEvent;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
+import java.util.Timer;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
+import java.io.*;
+import java.net.*;
+import java.awt.*;
+import java.util.*;
+import java.awt.event.*;
+import javax.swing.*;
+
+
+
+import static com.sun.java.accessibility.util.AWTEventMonitor.addWindowListener;
 
 public class Servidor{
 
     private InetAddress ip;
 
     private DatagramSocket socket;
-    private DatagramSocket socketFlood;
+    private DatagramSocket socket1;
     private DatagramSocket socketActivate;
     private DatagramSocket socketOverlay;
 
@@ -25,11 +40,13 @@ public class Servidor{
 
 
 
-    public Servidor() throws IOException {
+    public Servidor(InetAddress ipserver) throws IOException {
         //this.ip = inetAddress;
-        this.ip = InetAddress.getByName("172.16.0.20");
-        this.socket = new DatagramSocket(3000, this.ip);
-        System.out.println("server ip: " +  this.ip);
+        //this.ip = InetAddress.getByName("172.16.0.20");
+        this.socket = new DatagramSocket(4000);
+       // this.socket1 = new DatagramSocket(3210);
+        System.out.println("server ip: " +  ipserver);
+
         Database database = new Database();
         /*this.socketActivate = new DatagramSocket(5678, this.ip);
         this.socketOverlay = new DatagramSocket(4321, this.ip);*/
@@ -37,7 +54,7 @@ public class Servidor{
         // Thread Criacao do Overlay
         new Thread(() -> { //thread que se vai encarregar de receber novos nodos e de lhe dar os seus vizinhos (initOverlay)
             try {
-                List<InetAddress> vizinhos = database.getNeighbours(this.ip);
+                List<InetAddress> vizinhos = database.getNeighbours(ipserver);
 
                 for (InetAddress x : vizinhos) {
                     tabelaEstado.put(x, 0); // Inicialmente todos os nodos estão desativados
@@ -51,12 +68,9 @@ public class Servidor{
                 }
                 while (true) {
 
-                    byte[] msg = new byte[512];
+                    byte[] msg = new byte[1024];
                     DatagramPacket receiveP = new DatagramPacket(msg, msg.length);
                     socket.receive(receiveP);
-
-                    
-                    //parseFile();
 
                     msg = receiveP.getData();
                     Packet p = new Packet(msg);
@@ -64,7 +78,7 @@ public class Servidor{
                     ///////////////////////////////////////////////////////////////////////
                     if (p.getMsgType() == 2) {//msg de pedir vizinhos(overlay)
 
-                        System.out.println("Nodo " + nodeAdr + "lido!");
+                        System.out.println("sv: Nodo [ " + nodeAdr + " ] lido!");
 
                         try {
                             lockNodosRede.lock();
@@ -78,7 +92,7 @@ public class Servidor{
 
                             if (nodosRede.containsAll(database.getAllNodos())) {//1 vez | ?????????????????????????
                                 condNodos.signalAll();
-                                System.out.println("A Iniciar Flood!");
+                                System.out.println("sv: A Iniciar Flood!");
                             }
                         } finally{
                             lockNodosRede.unlock();
@@ -88,8 +102,9 @@ public class Servidor{
 
                         Packet send = new Packet(4,0, listaVizinhos); //MSG tipo 4 -> Sv envia vizinhos
 
-                        DatagramPacket pResponse = new DatagramPacket(send.serialize(), send.serialize().length, nodeAdr, 3000);
+                        DatagramPacket pResponse = new DatagramPacket(send.serialize(), send.serialize().length, nodeAdr, 4000);
                         socket.send(pResponse);
+                        System.out.println("sv: Enviei os vizinhos ao nodo");
                     } else{
                         tabelaEstado.put(nodeAdr,0);
                     }/////////////////////////////////////////////////////////////////
@@ -113,7 +128,7 @@ public class Servidor{
                 }
                 while (true) {
                     Thread.sleep(50);
-                    System.out.println("Flood Iniciado!");
+                    System.out.println("sv: Flood Iniciado!");
 
                     List<InetAddress> vizinhos = database.getNeighbours(this.ip);
 
@@ -121,8 +136,8 @@ public class Servidor{
 
                         Packet msg = new Packet(3, 1,null);//custo 1 msg de FLOOD
 
-                        DatagramPacket pResponse = new DatagramPacket(msg.serialize(), msg.serialize().length, x, 1234);
-                        socketFlood.send(pResponse);
+                        DatagramPacket pResponse = new DatagramPacket(msg.serialize(), msg.serialize().length, x, 4000);
+                        socket.send(pResponse);
                     }
                     Thread.sleep(20000);
                 }
@@ -133,60 +148,6 @@ public class Servidor{
     }
 
 
-    /*public Servidor() throws IOException {
-        Database db = new Database();
-        System.out.println("Servidor Criado");
-
-        DatagramSocket socket;
-        InetAddress address;
-        int port;
-        byte message;
-        InetAddress clientAddress;
-        int clientPort;
-
-        address =InetAddress.getByName("172.16.0.20");
-        port = 3000;
-        socket = new DatagramSocket(port,address);
-        System.out.println("Server listening on " + address + " port: " + port);
-
-        while (true) {
-            byte[] clienteBuffer = new byte[512];
-            DatagramPacket request = new DatagramPacket(clienteBuffer,clienteBuffer.length);
-            socket.receive(request);
-            clientAddress = request.getAddress();
-            clientPort = request.getPort();
-            String quote = new String(clienteBuffer, 0, request.getLength());
-            System.out.println("Client " + clientAddress.toString() + " says : " + quote);
-            List neighbours = db.getNeighbours(clientAddress);
-            answerCliente(neighbours, socket, clientAddress, clientPort);
-            //byte[] buffer = "Servidor Recebeu".getBytes(StandardCharsets.UTF_8);
-            //DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
-            //socket.send(response);
-        }
-
-    }
-
-    public void answerCliente(List neighbours,DatagramSocket socket, InetAddress clientAddress, int clientPort){
-        new Thread() {
-
-            public void run(){
-                byte[] buffer = neighbours.toString().getBytes(StandardCharsets.UTF_8);
-                DatagramPacket response = new DatagramPacket(buffer, buffer.length, clientAddress, clientPort);
-                try {
-                    socket.send(response);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        }.start();
-    }*/
-
-
-    public static void main(String argv[]) throws Exception{
-      //  Servidor s = new Servidor();
-    }
-
-    /*
     //GUI:
     //----------------
     JLabel label;
@@ -215,8 +176,8 @@ public class Servidor{
     //Constructor
     //--------------------------
 
-    /*
-    public Servidor() {
+
+    /*public Servidor() {
 
 
         //init Frame
@@ -259,21 +220,14 @@ public class Servidor{
      //------------------------------------
   //main (stream)
   //-----------------------------------
-  public static void main(String argv[]) throws Exception
+  public void streaming(InetAddress ipserver) throws Exception
   {
-    //get video filename to request:
-    if (argv.length >= 1 ) {
-        VideoFileName = argv[0];
-        System.out.println("Servidor: VideoFileName indicado como parametro: " + VideoFileName);
-    } else  {
-        VideoFileName = "movie.Mjpeg";
-        System.out.println("Servidor: parametro não foi indicado. VideoFileName = " + VideoFileName);
-    }
 
-    File f = new File(VideoFileName);
+    //get video filename to request:
+    File f = new File("movie.Mjpeg");
     if (f.exists()) {
         //Create a Main object
-        Servidor s = new Servidor();
+        Servidor s = new Servidor(ip);
         //show GUI: (opcional!)
         //s.pack();
         //s.setVisible(true);
@@ -328,8 +282,8 @@ public class Servidor{
 	//if we have reached the end of the video file, stop the timer
 	sTimer.stop();
       }
-  }
- */
+  }*/
+
 
 
 

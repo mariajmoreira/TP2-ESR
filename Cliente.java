@@ -13,7 +13,7 @@ import javax.swing.Timer;
 
 public class Cliente {
 
-    /* Dado pelos stores
+    //Dado pelos stores
     //GUI
     //----
     JFrame f = new JFrame("Cliente de Testes");
@@ -39,7 +39,13 @@ public class Cliente {
     //Constructor
     //--------------------------
 
-    public Cliente() {
+    protected DatagramSocket socket;
+
+    //private Map<InetAddress, Integer> tabelaEstado;
+
+    protected InetAddress router;
+
+    public Cliente() {//tava const4rutor vazio
 
         //build GUI
         //--------------------------
@@ -91,93 +97,85 @@ public class Cliente {
             System.out.println("Cliente: erro no socket: " + e.getMessage());
         }
     }
- */
 
-public Cliente(){
-    try {
-        InetAddress serverAddress =InetAddress.getByName("172.16.0.20");
-        int serverPort = 3000;
-        DatagramSocket socket = new DatagramSocket();
+public Cliente(InetAddress ipserver) throws SocketException {
 
-       // while (true) {
-            // DatagramPacket(byte[] buffer, buffer length, endereco de envio, porta de envio)
-            byte[] requestBuffer = "Who are my neighbours?".getBytes(StandardCharsets.UTF_8);
-            DatagramPacket request = new DatagramPacket(requestBuffer,requestBuffer.length, serverAddress, serverPort);
+    this.socket = new DatagramSocket(4000);
+
+    new Thread(() -> { // THREAD PARA CRIAR O OVERLAY
+        try {
+
+            Packet p = new Packet(2,0,null);
+
+            DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, ipserver, 4000);
+            System.out.println("tou aqui");
             socket.send(request);
 
-            byte[] buffer = new byte[512];
+            byte [] buffer = new byte[1024];
+
             DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+
             socket.receive(response);
 
-            String quote = new String(buffer, 0, response.getLength());
+            buffer = response.getData();
 
-            System.out.println(quote);
-            System.out.println();
+            Packet pResposta = new Packet(buffer);
 
-            socket.close();
-        //    Thread.sleep(10000);
-        //}
+            for(InetAddress x: pResposta.getVizinhos()) {
+                router = x;
 
-    } catch (SocketTimeoutException ex) {
-        System.out.println("Timeout error: " + ex.getMessage());
-        ex.printStackTrace();
-    } catch (IOException ex) {
-        System.out.println("Client error: " + ex.getMessage());
-        ex.printStackTrace();
-    } //catch (InterruptedException ex) {
-     //   ex.printStackTrace();
-    //}
-}
+                System.out.println("RECEBI VINHOS aaaaaa");
+            }
 
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }).start();
 
-    public static void main(String[] args) {
-        // ARGS for server : oNode S 
-        // ARGS for client : oNode C
-        /* 
-        if (args.length < 2) {
-            System.out.println("Syntax: oNodeClient <hostname> <port>");
-            return;
-        }*/
- 
-       //String hostname = args[0];
-        //int port = Integer.parseInt(args[1]);
- 
-        try {
-            InetAddress serverAddress =InetAddress.getByName("172.16.0.20");
-            int serverPort = 3000;
-            DatagramSocket socket = new DatagramSocket();
- 
-           // while (true) {
-                // DatagramPacket(byte[] buffer, buffer length, endereco de envio, porta de envio)
-                byte[] requestBuffer = "Who are my neighbours?".getBytes(StandardCharsets.UTF_8);
-                DatagramPacket request = new DatagramPacket(requestBuffer,requestBuffer.length, serverAddress, serverPort);
+    System.out.println("Pedir STREAM do video? 1 : yes | 0 : no");
+    Scanner s = new Scanner(System.in);
+    int i=s.nextInt();
+    if(i==1) {
+
+        new Thread(() -> { // pedir stream
+            try {
+
+                Packet p = new Packet(5, 0, null);//a pedir stream
+
+                DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, router, 4000);
+                //System.out.println("tou aqui");
                 socket.send(request);
- 
-                byte[] buffer = new byte[512];
-                DatagramPacket response = new DatagramPacket(buffer, buffer.length);
-                socket.receive(response);
- 
-                String quote = new String(buffer, 0, response.getLength());
- 
-                System.out.println(quote);
-                System.out.println();
 
-                socket.close();
-            //    Thread.sleep(10000);
-            //}
- 
-        } catch (SocketTimeoutException ex) {
-            System.out.println("Timeout error: " + ex.getMessage());
-            ex.printStackTrace();
-        } catch (IOException ex) {
-            System.out.println("Client error: " + ex.getMessage());
-            ex.printStackTrace();
-        } //catch (InterruptedException ex) {
-         //   ex.printStackTrace();
-        //}
+                while (true) {//Espera resposta do router
+
+                    byte[] data = new byte[1024];
+
+                    DatagramPacket responseR = new DatagramPacket(data, data.length);
+                    socket.receive(responseR);
+
+                    data = responseR.getData();
+                    Packet pReceive = new Packet(data);
+
+                    if (pReceive.getMsgType() == 6) {//router envia stream
+
+                        System.out.println("Recebi msg de stream do router " + responseR.getAddress());
+
+                    }else if(pReceive.getMsgType() == 3){
+
+                        System.out.println("Recebi msg de flood de " + responseR.getAddress());
+                    }
+                }
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
     }
 
-    /* dado pelos stores
+
+
+    // dado pelos stores
 
     //------------------------------------
     //Handler for buttons
@@ -252,5 +250,5 @@ public Cliente(){
         }
     }
 
-     */
+
 }
