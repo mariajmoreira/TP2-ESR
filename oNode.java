@@ -9,7 +9,6 @@ public class oNode {
             return;
         }
 
-        //int port = Integer.parseInt(args[2]);
         String ipserver = args[1];
 
         if (args[0].equals("S")) {
@@ -19,6 +18,7 @@ public class oNode {
         } else if (args[0].equals("C")) {
 
             Cliente c = new Cliente(InetAddress.getByName(ipserver));
+
         } else {
 
             Node n = new Node(InetAddress.getByName(ipserver));

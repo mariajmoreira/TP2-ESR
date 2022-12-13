@@ -39,11 +39,12 @@ public class Cliente {
     //Constructor
     //--------------------------
 
-    protected DatagramSocket socket;
+    private DatagramSocket socketEnviar;
+    private DatagramSocket socketReceber;
+
 
     //private Map<InetAddress, Integer> tabelaEstado;
-
-    protected InetAddress router;
+    private InetAddress router;
 
     public Cliente() {//tava const4rutor vazio
 
@@ -100,33 +101,73 @@ public class Cliente {
 
 public Cliente(InetAddress ipserver) throws SocketException {
 
-    this.socket = new DatagramSocket(4000);
+    this.socketEnviar = new DatagramSocket(4000);
+    this.socketReceber = new DatagramSocket(4321);
 
     new Thread(() -> { // THREAD PARA CRIAR O OVERLAY
         try {
 
             Packet p = new Packet(2,0,null);
+            DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, ipserver, 4321);
+            socketEnviar.send(request);
 
-            DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, ipserver, 4000);
-            System.out.println("tou aqui");
-            socket.send(request);
-
-            byte [] buffer = new byte[1024];
-
+            /*byte [] buffer = new byte[1024];
             DatagramPacket response = new DatagramPacket(buffer, buffer.length);
-
-            socket.receive(response);
+            socketReceber.receive(response);
 
             buffer = response.getData();
-
             Packet pResposta = new Packet(buffer);
 
-            for(InetAddress x: pResposta.getVizinhos()) {
-                router = x;
+            if (pResposta.getMsgType() == 4) {//recebe vizinhos a partir do servidor
 
-                System.out.println("RECEBI VINHOS aaaaaa");
+                System.out.println("client: A espera de vizinhos");
+
+                for (InetAddress x : pResposta.getVizinhos()) {
+                    router = x;
+
+                    System.out.println("aaaaaa");
+                }
+
+                System.out.println("client: Recebi os vizinhos:");
+
+                for (InetAddress vv : pResposta.getVizinhos()) {
+                    System.out.println(vv.toString());
+                }
+            }*/
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }).start();
+
+    new Thread(() -> { // THRead de recber do cliente
+        try {
+
+            byte [] buffer = new byte[1024];
+            DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+            socketReceber.receive(response);
+
+            buffer = response.getData();
+            Packet pResposta = new Packet(buffer);
+
+            if (pResposta.getMsgType() == 4) {//recebe vizinhos a partir do servidor
+
+                System.out.println("client: A espera de vizinhos");
+
+                for (InetAddress x : pResposta.getVizinhos()) {
+                    router = x;
+
+                    System.out.println("aaaaaa");
+                }
+
+                System.out.println("client: Recebi os vizinhos:");
+
+                for (InetAddress vv : pResposta.getVizinhos()) {
+                    System.out.println(vv.toString());
+                }
+            }else if(pResposta.getMsgType() == 3){//flood
+
+                System.out.println("client: Recebi pacote tipo 3 (flood) de " + response.getAddress());
             }
-
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -141,31 +182,25 @@ public Cliente(InetAddress ipserver) throws SocketException {
             try {
 
                 Packet p = new Packet(5, 0, null);//a pedir stream
-
-                DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, router, 4000);
+                DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, router, 4321);
                 //System.out.println("tou aqui");
-                socket.send(request);
+                socketEnviar.send(request);
 
                 while (true) {//Espera resposta do router
 
                     byte[] data = new byte[1024];
 
                     DatagramPacket responseR = new DatagramPacket(data, data.length);
-                    socket.receive(responseR);
+                    socketReceber.receive(responseR);
 
                     data = responseR.getData();
                     Packet pReceive = new Packet(data);
 
                     if (pReceive.getMsgType() == 6) {//router envia stream
 
-                        System.out.println("Recebi msg de stream do router " + responseR.getAddress());
-
-                    }else if(pReceive.getMsgType() == 3){
-
-                        System.out.println("Recebi msg de flood de " + responseR.getAddress());
+                        System.out.println("client: Recebi pacote tipo 6 (stream) do router [ " + responseR.getAddress() + " ]");
                     }
                 }
-
             } catch (IOException e) {
                 e.printStackTrace();
             }

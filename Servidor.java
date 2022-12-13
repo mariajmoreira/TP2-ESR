@@ -25,10 +25,10 @@ public class Servidor{
 
     private InetAddress ip;
 
-    private DatagramSocket socket;
-    private DatagramSocket socket1;
-    private DatagramSocket socketActivate;
-    private DatagramSocket socketOverlay;
+    private List<InetAddress> vizinhos;
+    private DatagramSocket socketEnviar;
+    private DatagramSocket socketReceber;
+
 
     private ReentrantLock lock = new ReentrantLock();
     private Map<InetAddress,Integer> tabelaEstado = new HashMap<>(); // tabela de encaminhamento de cada nodo || 1 - ativo || 0- desativado
@@ -42,10 +42,13 @@ public class Servidor{
 
     public Servidor(InetAddress ipserver) throws IOException {
         //this.ip = inetAddress;
-        //this.ip = InetAddress.getByName("172.16.0.20");
-        this.socket = new DatagramSocket(4000);
+        // this.ip = InetAddress.getByName("172.16.0.20");
+        this.socketEnviar = new DatagramSocket(4000);
+        this.socketReceber = new DatagramSocket(4321);
+
+        this.vizinhos = new ArrayList<>();
        // this.socket1 = new DatagramSocket(3210);
-        System.out.println("server ip: " +  ipserver);
+        //System.out.println("server : " +  ipserver);
 
         Database database = new Database();
         /*this.socketActivate = new DatagramSocket(5678, this.ip);
@@ -55,6 +58,12 @@ public class Servidor{
         new Thread(() -> { //thread que se vai encarregar de receber novos nodos e de lhe dar os seus vizinhos (initOverlay)
             try {
                 List<InetAddress> vizinhos = database.getNeighbours(ipserver);
+
+                System.out.println();
+                System.out.println("server: Vizinhos:");
+                for(InetAddress xxx : vizinhos){
+                    System.out.println(xxx.toString());
+                }
 
                 for (InetAddress x : vizinhos) {
                     tabelaEstado.put(x, 0); // Inicialmente todos os nodos estão desativados
@@ -70,7 +79,7 @@ public class Servidor{
 
                     byte[] msg = new byte[1024];
                     DatagramPacket receiveP = new DatagramPacket(msg, msg.length);
-                    socket.receive(receiveP);
+                    socketReceber.receive(receiveP);
 
                     msg = receiveP.getData();
                     Packet p = new Packet(msg);
@@ -87,7 +96,7 @@ public class Servidor{
                             lockNodosRede.unlock();
                         }
 
-                        try {
+                        /*try {
                             lockNodosRede.lock();
 
                             if (nodosRede.containsAll(database.getAllNodos())) {//1 vez | ?????????????????????????
@@ -96,15 +105,15 @@ public class Servidor{
                             }
                         } finally{
                             lockNodosRede.unlock();
-                        }
+                        }*/
 
-                        List<InetAddress> listaVizinhos = database.getNeighbours(nodeAdr);
+                        List<InetAddress> listVizinhos = database.getNeighbours(nodeAdr);
 
-                        Packet send = new Packet(4,0, listaVizinhos); //MSG tipo 4 -> Sv envia vizinhos
+                        Packet send = new Packet(4,0, listVizinhos); //MSG tipo 4 -> Sv envia vizinhos
 
-                        DatagramPacket pResponse = new DatagramPacket(send.serialize(), send.serialize().length, nodeAdr, 4000);
-                        socket.send(pResponse);
-                        System.out.println("sv: Enviei os vizinhos ao nodo");
+                        DatagramPacket pResponse = new DatagramPacket(send.serialize(), send.serialize().length, nodeAdr, 4321);
+                        socketEnviar.send(pResponse);
+                        System.out.println("sv: Enviei pacote tipo 4 (vizinhos) ao nodo [ " + nodeAdr + " ]");
                     } else{
                         tabelaEstado.put(nodeAdr,0);
                     }/////////////////////////////////////////////////////////////////
@@ -117,7 +126,7 @@ public class Servidor{
 
         new Thread(() -> { //Thread encarregue de fazer flood para a rede para determinar as tabelas de encaminhamento
             try {
-                try {
+                /*try {
                     lockNodosRede.lock();
 
                     while (!nodosRede.containsAll(database.getAllNodos()))
@@ -125,21 +134,23 @@ public class Servidor{
 
                 } finally{
                     lockNodosRede.unlock();
-                }
+                }*/
                 while (true) {
                     Thread.sleep(50);
                     System.out.println("sv: Flood Iniciado!");
 
-                    List<InetAddress> vizinhos = database.getNeighbours(this.ip);
+                    vizinhos = database.getNeighbours(ipserver);
 
                     for (InetAddress x : vizinhos) {
+                        //System.out.println("antes de enviar");
 
                         Packet msg = new Packet(3, 1,null);//custo 1 msg de FLOOD
 
-                        DatagramPacket pResponse = new DatagramPacket(msg.serialize(), msg.serialize().length, x, 4000);
-                        socket.send(pResponse);
+                        DatagramPacket pResponse = new DatagramPacket(msg.serialize(), msg.serialize().length, x, 4321);
+                        socketEnviar.send(pResponse);
+                        //System.out.println("dps de enviar");
                     }
-                    Thread.sleep(20000);
+                    Thread.sleep(30000);
                 }
             } catch(Exception e) {
                 e.printStackTrace();
@@ -220,14 +231,14 @@ public class Servidor{
      //------------------------------------
   //main (stream)
   //-----------------------------------
-  public void streaming(InetAddress ipserver) throws Exception
+  public void streaming() throws Exception
   {
 
     //get video filename to request:
     File f = new File("movie.Mjpeg");
     if (f.exists()) {
         //Create a Main object
-        Servidor s = new Servidor(ip);
+        Servidor s = new Servidor();
         //show GUI: (opcional!)
         //s.pack();
         //s.setVisible(true);
@@ -283,10 +294,6 @@ public class Servidor{
 	sTimer.stop();
       }
   }*/
-
-
-
-
 
 
  

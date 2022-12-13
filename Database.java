@@ -10,10 +10,10 @@ public class Database {
      private Map<InetAddress, List<InetAddress>> configFile; //ip, <ips dos vizinhos>
 
      public Database() throws IOException {
-        System.out.println("Database Criada");
+        System.out.println("Database Criada!");
         parser("configFile.txt");
     
-        System.out.println("CONFIG: \n" + configFile.toString());
+        System.out.println("CONFIG: " + configFile.toString());
     
         //
     
@@ -60,7 +60,7 @@ public class Database {
 
       this.configFile.put(inetnodo,lista);
   }
-  System.out.println("parsing done");
+  System.out.println("Parsing done!");
   reader.close();
 
     }   

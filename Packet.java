@@ -4,18 +4,18 @@ import java.util.List;
 
 public class Packet implements Serializable{
 
-    private int msgType;//tipo de mensagem a enviar //0-> actualizar
-    //1-> activate
+    private int msgType;//tipo de mensagem a enviar //0
+    //1
     //2-> overlay
     //3->flood
-    //4->sv envia vizinhos
+    //4->Envia vizinhos (inicializar )
     //5->Pedir stream (percorre até ao sv)
-    //6-> router envia stream
+    //6->Enviar stream
     //
     private int custo;
     private List<InetAddress> vizinhos;
 
-    private RTPpacket rtpPacket;
+    //private RTPpacket rtpPacket;
 
     public Packet() {
         this.msgType = 0;
