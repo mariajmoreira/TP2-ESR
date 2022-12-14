@@ -26,6 +26,7 @@ public class Cliente {
     JLabel iconLabel = new JLabel();
     ImageIcon icon;
 
+
     //RTP variables:
     //----------------
     DatagramPacket rcvdp; //UDP packet received from the server (to receive)
@@ -35,18 +36,102 @@ public class Cliente {
     Timer cTimer; //timer used to receive data from the UDP socket
     byte[] cBuf; //buffer used to store data received from the server
 
-    //--------------------------
-    //Constructor
-    //--------------------------
-
     private DatagramSocket socketEnviar;
     private DatagramSocket socketReceber;
-
 
     //private Map<InetAddress, Integer> tabelaEstado;
     private InetAddress router;
 
-    public Cliente() {//tava const4rutor vazio
+public Cliente(InetAddress ipserver) throws SocketException {
+
+    this.socketEnviar = new DatagramSocket(4000);
+    this.socketReceber = new DatagramSocket(4321);
+
+    new Thread(() -> { // THREAD PARA CRIAR O OVERLAY
+        try {
+
+            Packet p = new Packet(2, 0, null);
+            DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, ipserver, 4321);
+            socketEnviar.send(request);
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }).start();
+
+    new Thread(() -> { // THRead de recber do cliente
+        try {
+            while (true) {
+
+                //System.out.println("client: A espera de vizinhos");
+
+                byte[] buffer = new byte[1024];
+                DatagramPacket response = new DatagramPacket(buffer, buffer.length);
+                socketReceber.receive(response);
+
+                buffer = response.getData();
+                Packet pResposta = new Packet(buffer);
+
+                if (pResposta.getMsgType() == 4) {//recebe vizinhos a partir do servidor
+
+                    for (InetAddress x : pResposta.getVizinhos()) {
+                        router = x;
+                    }
+                    System.out.println("client: Recebi os vizinhos:");//print do router do sv
+                    for (InetAddress vv : pResposta.getVizinhos()) {
+                        System.out.println(vv.toString());
+                    }
+                } else if (pResposta.getMsgType() == 3) {//flood
+
+                    System.out.println("client: Recebi pacote tipo 3 (flood) de " + response.getAddress());
+
+                } else {
+                    System.out.println("ERRO: mensagem de tipo desconhecido!)");
+                }
+            }
+        } catch(IOException e){
+            e.printStackTrace();
+
+        }
+    }).start();
+
+    System.out.println("Pedir STREAM do video? 1 : yes | 0 : no");
+    Scanner s = new Scanner(System.in);
+    int i= s.nextInt();
+    //boolean testa=false;
+    if(i==1) {
+
+        new Thread(() -> { // pedir stream
+            try {
+
+                Packet p = new Packet(5, 0, null);//a pedir stream
+                DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, router, 4321);
+                //System.out.println("tou aqui");
+                socketEnviar.send(request);
+
+                while (true) {//Espera resposta do router
+
+                    byte[] data = new byte[1024];
+
+                    DatagramPacket responseR = new DatagramPacket(data, data.length);
+                    socketReceber.receive(responseR);
+
+                    data = responseR.getData();
+                    Packet pReceive = new Packet(data);
+
+                    if (pReceive.getMsgType() == 6) {//router envia stream
+
+                        System.out.println("client: Recebi pacote tipo 6 (stream) do router [ " + responseR.getAddress() + " ]");
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+    }
+    }
+
+    public Cliente() {
 
         //build GUI
         //--------------------------
@@ -99,118 +184,12 @@ public class Cliente {
         }
     }
 
-public Cliente(InetAddress ipserver) throws SocketException {
-
-    this.socketEnviar = new DatagramSocket(4000);
-    this.socketReceber = new DatagramSocket(4321);
-
-    new Thread(() -> { // THREAD PARA CRIAR O OVERLAY
-        try {
-
-            Packet p = new Packet(2,0,null);
-            DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, ipserver, 4321);
-            socketEnviar.send(request);
-
-            /*byte [] buffer = new byte[1024];
-            DatagramPacket response = new DatagramPacket(buffer, buffer.length);
-            socketReceber.receive(response);
-
-            buffer = response.getData();
-            Packet pResposta = new Packet(buffer);
-
-            if (pResposta.getMsgType() == 4) {//recebe vizinhos a partir do servidor
-
-                System.out.println("client: A espera de vizinhos");
-
-                for (InetAddress x : pResposta.getVizinhos()) {
-                    router = x;
-
-                    System.out.println("aaaaaa");
-                }
-
-                System.out.println("client: Recebi os vizinhos:");
-
-                for (InetAddress vv : pResposta.getVizinhos()) {
-                    System.out.println(vv.toString());
-                }
-            }*/
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }).start();
-
-    new Thread(() -> { // THRead de recber do cliente
-        try {
-
-            byte [] buffer = new byte[1024];
-            DatagramPacket response = new DatagramPacket(buffer, buffer.length);
-            socketReceber.receive(response);
-
-            buffer = response.getData();
-            Packet pResposta = new Packet(buffer);
-
-            if (pResposta.getMsgType() == 4) {//recebe vizinhos a partir do servidor
-
-                System.out.println("client: A espera de vizinhos");
-
-                for (InetAddress x : pResposta.getVizinhos()) {
-                    router = x;
-
-                    System.out.println("aaaaaa");
-                }
-
-                System.out.println("client: Recebi os vizinhos:");
-
-                for (InetAddress vv : pResposta.getVizinhos()) {
-                    System.out.println(vv.toString());
-                }
-            }else if(pResposta.getMsgType() == 3){//flood
-
-                System.out.println("client: Recebi pacote tipo 3 (flood) de " + response.getAddress());
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }).start();
-
-    System.out.println("Pedir STREAM do video? 1 : yes | 0 : no");
-    Scanner s = new Scanner(System.in);
-    int i=s.nextInt();
-    if(i==1) {
-
-        new Thread(() -> { // pedir stream
-            try {
-
-                Packet p = new Packet(5, 0, null);//a pedir stream
-                DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, router, 4321);
-                //System.out.println("tou aqui");
-                socketEnviar.send(request);
-
-                while (true) {//Espera resposta do router
-
-                    byte[] data = new byte[1024];
-
-                    DatagramPacket responseR = new DatagramPacket(data, data.length);
-                    socketReceber.receive(responseR);
-
-                    data = responseR.getData();
-                    Packet pReceive = new Packet(data);
-
-                    if (pReceive.getMsgType() == 6) {//router envia stream
-
-                        System.out.println("client: Recebi pacote tipo 6 (stream) do router [ " + responseR.getAddress() + " ]");
-                    }
-                }
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }).start();
+    //------------------------------------
+    //main
+    //------------------------------------
+    public static void streamingClient() throws Exception {
+        Cliente t = new Cliente();
     }
-    }
-
-
-
-    // dado pelos stores
 
     //------------------------------------
     //Handler for buttons
@@ -284,6 +263,9 @@ public Cliente(InetAddress ipserver) throws SocketException {
             }
         }
     }
+
+
+
 
 
 }

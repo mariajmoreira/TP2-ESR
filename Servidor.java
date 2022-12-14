@@ -7,7 +7,6 @@ import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.List;
-import java.util.Timer;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import java.io.*;
@@ -16,43 +15,37 @@ import java.awt.*;
 import java.util.*;
 import java.awt.event.*;
 import javax.swing.*;
-
-
+import javax.swing.Timer;
 
 import static com.sun.java.accessibility.util.AWTEventMonitor.addWindowListener;
 
-public class Servidor{
+
+public class Servidor extends JFrame implements ActionListener{
 
     private InetAddress ip;
-
     private List<InetAddress> vizinhos;
     private DatagramSocket socketEnviar;
     private DatagramSocket socketReceber;
-
-
     private ReentrantLock lock = new ReentrantLock();
-    private Map<InetAddress,Integer> tabelaEstado = new HashMap<>(); // tabela de encaminhamento de cada nodo || 1 - ativo || 0- desativado
-
+    private Map<InetAddress,Integer> tabelaEstado = new HashMap<>(); // se o nodo esta a receber stream || 1 - ativo || 0- desativado
     private List<InetAddress> nodosRede = new ArrayList<>();
     private ReentrantLock lockNodosRede = new ReentrantLock();
 
-    private Condition condNodos = lockNodosRede.newCondition();
+    private List<InetAddress> destinosStream;
 
+    //private Condition condNodos = lockNodosRede.newCondition();
 
 
     public Servidor(InetAddress ipserver) throws IOException {
-        //this.ip = inetAddress;
-        // this.ip = InetAddress.getByName("172.16.0.20");
+
         this.socketEnviar = new DatagramSocket(4000);
         this.socketReceber = new DatagramSocket(4321);
 
+        this.destinosStream = new ArrayList<>();
+
         this.vizinhos = new ArrayList<>();
-       // this.socket1 = new DatagramSocket(3210);
-        //System.out.println("server : " +  ipserver);
 
         Database database = new Database();
-        /*this.socketActivate = new DatagramSocket(5678, this.ip);
-        this.socketOverlay = new DatagramSocket(4321, this.ip);*/
 
         // Thread Criacao do Overlay
         new Thread(() -> { //thread que se vai encarregar de receber novos nodos e de lhe dar os seus vizinhos (initOverlay)
@@ -66,12 +59,12 @@ public class Servidor{
                 }
 
                 for (InetAddress x : vizinhos) {
-                    tabelaEstado.put(x, 0); // Inicialmente todos os nodos estão desativados
+                    tabelaEstado.put(x, 0); // Inicialmente ng tem stream
 
                 }
                 try {
                     lockNodosRede.lock();
-                    nodosRede.add(this.ip);
+                    nodosRede.add(ipserver);
                 } finally {
                     lockNodosRede.unlock();
                 }
@@ -84,7 +77,7 @@ public class Servidor{
                     msg = receiveP.getData();
                     Packet p = new Packet(msg);
                     InetAddress nodeAdr = receiveP.getAddress();
-                    ///////////////////////////////////////////////////////////////////////
+                    /////////////////////////////////////////////////////////////////////////////////////////////////////
                     if (p.getMsgType() == 2) {//msg de pedir vizinhos(overlay)
 
                         System.out.println("sv: Nodo [ " + nodeAdr + " ] lido!");
@@ -114,17 +107,32 @@ public class Servidor{
                         DatagramPacket pResponse = new DatagramPacket(send.serialize(), send.serialize().length, nodeAdr, 4321);
                         socketEnviar.send(pResponse);
                         System.out.println("sv: Enviei pacote tipo 4 (vizinhos) ao nodo [ " + nodeAdr + " ]");
-                    } else{
-                        tabelaEstado.put(nodeAdr,0);
-                    }/////////////////////////////////////////////////////////////////
+
+                    } else if(p.getMsgType() == 5){//pedir streaming
+
+                        destinosStream.add(nodeAdr);
+
+                        tabelaEstado.put(nodeAdr,1);//nodo vai passar a trasnmitir stream
+
+                        new Thread(() -> { //Thread encarregue de fazer stream
+                            try {
+                                streaming();
+
+                            } catch(Exception e) {
+                                e.printStackTrace();
+                            }
+                        }).start();
+
+                    }else System.out.println("sv: ERRO: mensagem recebida não reconhecida!");
+                    /////////////////////////////////////////////////////////////////
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
                 throw new RuntimeException(e);
             }
 
         }).start();
 
-        new Thread(() -> { //Thread encarregue de fazer flood para a rede para determinar as tabelas de encaminhamento
+        new Thread(() -> { //FLOODING
             try {
                 /*try {
                     lockNodosRede.lock();
@@ -136,7 +144,7 @@ public class Servidor{
                     lockNodosRede.unlock();
                 }*/
                 while (true) {
-                    Thread.sleep(50);
+                    Thread.sleep(1000);//os nodos precisam receber primeiro os seus vizinhos
                     System.out.println("sv: Flood Iniciado!");
 
                     vizinhos = database.getNeighbours(ipserver);
@@ -156,8 +164,9 @@ public class Servidor{
                 e.printStackTrace();
             }
         }).start();
-    }
 
+
+    }
 
     //GUI:
     //----------------
@@ -188,14 +197,12 @@ public class Servidor{
     //--------------------------
 
 
-    /*public Servidor() {
-
-
+    public Servidor() throws Exception{
         //init Frame
         super("Servidor");
 
         // init para a parte do servidor
-        sTimer = new Timer(FRAME_PERIOD, this); //init Timer para servidor
+        sTimer = new Timer(FRAME_PERIOD,this); //init Timer para servidor
         sTimer.setInitialDelay(0);
         sTimer.setCoalesce(true);
         sBuf = new byte[15000]; //allocate memory for the sending buffer
@@ -228,73 +235,75 @@ public class Servidor{
         sTimer.start();
     }
 
-     //------------------------------------
-  //main (stream)
-  //-----------------------------------
-  public void streaming() throws Exception
-  {
+    //------------------------------------
+    //main
+    //------------------------------------
+    public static void streaming() throws Exception {
 
-    //get video filename to request:
-    File f = new File("movie.Mjpeg");
-    if (f.exists()) {
-        //Create a Main object
-        Servidor s = new Servidor();
-        //show GUI: (opcional!)
-        //s.pack();
-        //s.setVisible(true);
-    } else
-        System.out.println("Ficheiro de video não existe: " + VideoFileName);
-  }
+        File f = new File("movie.Mjpeg");
+        if (f.exists()) {
+            //Create a Main object
+            Servidor s = new Servidor();
+            //show GUI: (opcional!)
+            //s.pack();
+            //s.setVisible(true);
+        } else
+            System.out.println("Ficheiro de video não existe: " + VideoFileName);
+    }
 
-  //------------------------
-  //Handler for timer
-  //------------------------
-  public void actionPerformed(ActionEvent e) {
+    //------------------------
+    //Handler for timer
+    //------------------------
+    public void actionPerformed(ActionEvent e) {
 
-    //if the current image nb is less than the length of the video
-    if (imagenb < VIDEO_LENGTH)
-      {
-	//update current imagenb
-	imagenb++;
+        //if the current image nb is less than the length of the video
+        if (imagenb < VIDEO_LENGTH)
+        {
+            //update current imagenb
+            imagenb++;
 
-	try {
-	  //get next frame to send from the video, as well as its size
-	  int image_length = video.getnextframe(sBuf);
+            try {
+                //get next frame to send from the video, as well as its size
+                int image_length = video.getnextframe(sBuf);
 
-	  //Builds an RTPpacket object containing the frame
-	  RTPpacket rtp_packet = new RTPpacket(MJPEG_TYPE, imagenb, imagenb*FRAME_PERIOD, sBuf, image_length);
+                //Builds an RTPpacket object containing the frame
+                RTPpacket rtp_packet = new RTPpacket(MJPEG_TYPE, imagenb, imagenb*FRAME_PERIOD, sBuf, image_length);
 
-	  //get to total length of the full rtp packet to send
-	  int packet_length = rtp_packet.getlength();
+                //get to total length of the full rtp packet to send
+                int packet_length = rtp_packet.getlength();
 
-	  //retrieve the packet bitstream and store it in an array of bytes
-	  byte[] packet_bits = new byte[packet_length];
-	  rtp_packet.getpacket(packet_bits);
-
-	  //send the packet as a DatagramPacket over the UDP socket
-	  senddp = new DatagramPacket(packet_bits, packet_length, ClientIPAddr, RTP_dest_port);
-	  RTPsocket.send(senddp);
-
-	  System.out.println("Send frame #"+imagenb);
-	  //print the header bitstream
-	  rtp_packet.printheader();
-
-	  //update GUI
-	  //label.setText("Send frame #" + imagenb);
-	}
-	catch(Exception ex)
-	  {
-	    System.out.println("Exception caught: "+ex);
-	    System.exit(0);
-	  }
-      }
-    else
-      {
-	//if we have reached the end of the video file, stop the timer
-	sTimer.stop();
-      }
-  }*/
+                //retrieve the packet bitstream and store it in an array of bytes
+                byte[] packet_bits = new byte[packet_length];
+                rtp_packet.getpacket(packet_bits);
 
 
- 
+                for(InetAddress nd : destinosStream){
+
+                    senddp = new DatagramPacket(packet_bits, packet_length, nd, RTP_dest_port);///---------------------------------------------------------<
+                    RTPsocket.send(senddp);
+
+                }
+                //send the packet as a DatagramPacket over the UDP socket
+
+                System.out.println("Send frame #"+imagenb);
+                //print the header bitstream
+                rtp_packet.printheader();
+
+                //update GUI
+                //label.setText("Send frame #" + imagenb);
+            }
+            catch(Exception ex)
+            {
+                System.out.println("Exception caught: "+ex);
+                System.exit(0);
+            }
+        }
+        else
+        {
+            //if we have reached the end of the video file, stop the timer
+            sTimer.stop();
+        }
+    }
 }
+
+

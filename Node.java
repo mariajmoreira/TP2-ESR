@@ -1,3 +1,5 @@
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
@@ -14,14 +16,27 @@ public class Node {
 
     private List<InetAddress> vizinhanca;
 
+    private List<InetAddress> destinosStream;
+
+    //para stream a partir do nodo
+
+    DatagramPacket rcvdp; //UDP packet received from the server (to receive)
+    DatagramSocket RTPsocket; //socket to be used to send and receive UDP packet
+    static int RTP_RCV_PORT = 25000; //port where the client will receive the RTP packets
+    Timer cTimer; //timer used to receive data from the UDP socket
+    byte[] cBuf;
+
 
     public Node(InetAddress ipserver) throws IOException {
 
         this.vizinhanca = new ArrayList<>();
         this.tabelaCusto = new HashMap<>();
+        this.destinosStream = new ArrayList<>();
 
         socketEnviar = new DatagramSocket(4000);
         socketReceber = new DatagramSocket(4321);
+        RTPsocket = new DatagramSocket(RTP_RCV_PORT);
+        //RTPsocket = new DatagramSocket(6000);
 
        // this.socket1 = new DatagramSocket(3210);
         /*this.socketActivate = new DatagramSocket(5678, this.ip);
@@ -46,6 +61,42 @@ public class Node {
             }
         }).start();
 
+        /*new Thread(() -> { // THREAD PARA
+            try {
+
+                while(true) {
+
+                    rcvdp = new DatagramPacket(cBuf, cBuf.length);
+                    RTPsocket.receive(rcvdp);
+
+                    estadoStreamNodo=1;
+
+                    System.out.println("node: Recebi um pacote RTP do ip [ " + rcvdp.getAddress() + " ]");
+
+                    RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
+
+                    for(InetAddress quemQuer : destinosStream){
+
+                        int packet_length = rtp_packet.getlength();
+
+                        byte[] packetBits = new byte[packet_length];
+                        rtp_packet.getpacket(packetBits);
+
+                        DatagramPacket senddp = new DatagramPacket(packetBits, packet_length, quemQuer, RTP_RCV_PORT);
+                        RTPsocket.send(senddp);
+
+                        System.out.println("node: Stream enviada para o ip [ "+ quemQuer.toString()+ " ]");
+
+                    }
+                }
+
+
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();*/
+
         new Thread(() -> { // THREAD PARa receber msg do cliente e enviar ou pedir stream ao nodo anterior
             try {
                 while(true){
@@ -64,7 +115,9 @@ public class Node {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                     if(pReceive.getMsgType()==5) {//cliente pede stream
 
-                        if((estadoStreamNodo!=1)) {
+                        destinosStream.add(responseO.getAddress());//adiciona a quem quer stream
+
+                        if((estadoStreamNodo!=1)) {//nodo ainda n tem streaming
 
                             Packet pStream = new Packet(5, 0, null);//pede stream
                             //byte[] dataNew = pStream.serialize();
@@ -77,6 +130,41 @@ public class Node {
 
                             DatagramPacket newNode = new DatagramPacket(pStream.serialize(), pStream.serialize().length, maisProximo, 4321);
                             socketEnviar.send(newNode);
+
+                        }else{//nodo ja tem streaming
+
+                            new Thread(() -> { // THREAD PARA receber e enviar pacotes RTP
+                                try {
+
+                                    while(true) {
+
+                                        rcvdp = new DatagramPacket(cBuf, cBuf.length);
+                                        RTPsocket.receive(rcvdp);
+
+                                        estadoStreamNodo=1;
+
+                                        System.out.println("node: Recebi um pacote RTP do ip [ " + rcvdp.getAddress() + " ]");
+
+                                        RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
+
+                                        for(InetAddress quemQuer : destinosStream){
+
+                                            int packet_length = rtp_packet.getlength();
+
+                                            byte[] packetBits = new byte[packet_length];
+                                            rtp_packet.getpacket(packetBits);
+
+                                            DatagramPacket senddp = new DatagramPacket(packetBits, packet_length, quemQuer, RTP_RCV_PORT);
+                                            RTPsocket.send(senddp);
+
+                                            System.out.println("node: Stream enviada para o ip [ "+ quemQuer.toString()+ " ]");
+
+                                        }
+                                    }
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                }
+                            }).start();
                         }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                     }else if (pReceive.getMsgType() == 4) {//recebe vizinhos a partir do servidor
@@ -92,7 +180,7 @@ public class Node {
                         }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                    }else if(pReceive.getMsgType()==3){//flood msg
+                    }else if(pReceive.getMsgType()==3){//FLOODING MSG
 
                         System.out.println("node: Começar o flood!");
 
@@ -115,6 +203,8 @@ public class Node {
                                     byte[] dataResponse = msg.serialize();
                                     DatagramPacket pResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 4321);
                                     socketEnviar.send(pResponse);
+
+                                    System.out.println("node: flooding to [ "+ inet.toString() + " ]");
                                 }
                             }
                         }else { //Vezes seguintes a chegar ao nodo
@@ -142,9 +232,7 @@ public class Node {
                                 tabelaCusto.put(nodoFloodRecebido, custo);
                             }
                         }
-                    } else{
-                            System.out.println("ERRO: mensagem de tipo desconhecido!)");
-                        }
+                    } else System.out.println("ERRO: mensagem de tipo desconhecido!)");
                             //enviar stream ao cliente
 
                     }
@@ -152,89 +240,5 @@ public class Node {
                 throw new RuntimeException(e);
             }
         }).start();
-
-        /*new Thread(() -> { // THREAD para flood
-            try {
-
-                    //..-
-                while(true) {
-                    //....
-                    byte [] data = new byte[512];
-
-                    DatagramPacket receiveP = new DatagramPacket(data, data.length); // Recebe packet a dizer qual o custo
-
-                    socketReceber.receive(receiveP);
-                    //Thread.sleep(50);
-
-                    byte[] dataReceived = receiveP.getData();
-                    Packet p = new Packet(data);
-
-                    if(p.getMsgType()==3){//flood msg
-
-                        System.out.println("node: Começar o flood!");
-
-                        InetAddress nodoOrigem = receiveP.getAddress();
-
-                        int custo = p.getCusto();
-
-                        System.out.println("node: Recebido : " + nodoOrigem + " com custo : " + custo);
-
-                        if (prev_node == null) { // 1ª iteração
-                            prev_node = nodoOrigem;
-                            tabelaCusto.put(nodoOrigem, custo); // Guardar na tabela de custos qual a origem e o custo a partir dessa origem
-
-                            System.out.println("node: ITERACAO 1: A enviar para vizinhos | custo : " + custo);
-
-                            for (InetAddress inet : vizinhanca) {
-                                if (!inet.equals(prev_node)) {//não enviar para o nodo anterior
-
-                                    Packet msg = new Packet(3,custo+1,null);//FLOOD MSG
-                                    byte[] dataResponse = msg.serialize();
-                                    DatagramPacket pResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 4321);
-                                    socketEnviar.send(pResponse);
-                                }
-                            }
-
-                        } else { //Vezes seguintes a chegar ao nodo
-                            int custoAnterior = tabelaCusto.get(prev_node);
-                            if (custo < custoAnterior) { //Atualizar o antecessor
-                                prev_node = nodoOrigem;
-                                System.out.println("node: ITERAÇÃO X : A enviar para vizinhos | custo : " + custo);
-
-                                // envia msg aos seus vizinhos
-                                for (InetAddress inet : vizinhanca) {
-                                    if (!inet.equals(prev_node)) {
-
-                                        Packet msg1 = new Packet(3,custo+1,null);
-                                        byte[] dataResponse = msg1.serialize();
-                                        DatagramPacket pktResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 4321);
-                                        socketEnviar.send(pktResponse);
-                                    }
-                                }
-                            }
-
-                            if (tabelaCusto.containsKey(nodoOrigem)) { // Atualização do valor
-                                int custoAntigo = tabelaCusto.get(nodoOrigem);
-                                if (custoAntigo >= custo) tabelaCusto.put(nodoOrigem, custo);
-                            } else { // Inserção do valor
-                                tabelaCusto.put(nodoOrigem, custo);
-                            }
-                        }
-                    } else{
-                        System.out.println("node: Erro! (msg não tipo 3 (flood)");
-                    }
-                }
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }).start();
-
-
-
-
-    }*/
-
-
-}
+    }
 }

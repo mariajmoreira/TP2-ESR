@@ -10,7 +10,7 @@ public class Packet implements Serializable{
     //3->flood
     //4->Envia vizinhos (inicializar )
     //5->Pedir stream (percorre até ao sv)
-    //6->Enviar stream
+    //6->Enviar stream ??
     //
     private int custo;
     private List<InetAddress> vizinhos;
