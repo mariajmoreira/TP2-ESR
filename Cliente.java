@@ -109,7 +109,19 @@ public Cliente(InetAddress ipserver) throws SocketException {
                 //System.out.println("tou aqui");
                 socketEnviar.send(request);
 
-                while (true) {//Espera resposta do router
+                new Thread(() -> {
+                    try {
+
+                        streamingClient();
+
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }).start();
+
+                /*while (true) {//Espera resposta do router RTP packet
 
                     byte[] data = new byte[1024];
 
@@ -123,7 +135,7 @@ public Cliente(InetAddress ipserver) throws SocketException {
 
                         System.out.println("client: Recebi pacote tipo 6 (stream) do router [ " + responseR.getAddress() + " ]");
                     }
-                }
+                }*/
             } catch (IOException e) {
                 e.printStackTrace();
             }

@@ -61,42 +61,6 @@ public class Node {
             }
         }).start();
 
-        /*new Thread(() -> { // THREAD PARA
-            try {
-
-                while(true) {
-
-                    rcvdp = new DatagramPacket(cBuf, cBuf.length);
-                    RTPsocket.receive(rcvdp);
-
-                    estadoStreamNodo=1;
-
-                    System.out.println("node: Recebi um pacote RTP do ip [ " + rcvdp.getAddress() + " ]");
-
-                    RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
-
-                    for(InetAddress quemQuer : destinosStream){
-
-                        int packet_length = rtp_packet.getlength();
-
-                        byte[] packetBits = new byte[packet_length];
-                        rtp_packet.getpacket(packetBits);
-
-                        DatagramPacket senddp = new DatagramPacket(packetBits, packet_length, quemQuer, RTP_RCV_PORT);
-                        RTPsocket.send(senddp);
-
-                        System.out.println("node: Stream enviada para o ip [ "+ quemQuer.toString()+ " ]");
-
-                    }
-                }
-
-
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }).start();*/
-
         new Thread(() -> { // THREAD PARa receber msg do cliente e enviar ou pedir stream ao nodo anterior
             try {
                 while(true){
@@ -114,6 +78,9 @@ public class Node {
                     System.out.println("node: recebi um pacote do tipo " + pReceive.getMsgType() + " do ip [ " + responseO.getAddress() + " ] msg(2/2)");
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                     if(pReceive.getMsgType()==5) {//cliente pede stream
+
+                        System.out.println("node: Pedido de Stream (Tipo 5)");
+                        System.out.println();
 
                         destinosStream.add(responseO.getAddress());//adiciona a quem quer stream
 
@@ -169,7 +136,8 @@ public class Node {
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                     }else if (pReceive.getMsgType() == 4) {//recebe vizinhos a partir do servidor
 
-                        System.out.println("node: A espera de vizinhos");
+                        System.out.println("node: A espera de vizinhos (Tipo 4)");
+                        System.out.println();
 
                         vizinhanca.addAll(pReceive.getVizinhos());
                         //vizinhanca.addAll(pReceive.getVizinhos());
@@ -182,7 +150,8 @@ public class Node {
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                     }else if(pReceive.getMsgType()==3){//FLOODING MSG
 
-                        System.out.println("node: Começar o flood!");
+                        System.out.println("node: Começar o flood! (Tipo 3)");
+                        System.out.println();
 
                         InetAddress nodoFloodRecebido = responseO.getAddress();
 

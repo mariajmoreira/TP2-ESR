@@ -158,7 +158,7 @@ public class Servidor extends JFrame implements ActionListener{
                         socketEnviar.send(pResponse);
                         //System.out.println("dps de enviar");
                     }
-                    Thread.sleep(30000);
+                    Thread.sleep(10000);
                 }
             } catch(Exception e) {
                 e.printStackTrace();
@@ -240,7 +240,9 @@ public class Servidor extends JFrame implements ActionListener{
     //------------------------------------
     public static void streaming() throws Exception {
 
-        File f = new File("movie.Mjpeg");
+        VideoFileName = "movie.Mjpeg";
+
+        File f = new File(VideoFileName);
         if (f.exists()) {
             //Create a Main object
             Servidor s = new Servidor();
