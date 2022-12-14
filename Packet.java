@@ -6,7 +6,7 @@ public class Packet implements Serializable{
 
     private int msgType;//tipo de mensagem a enviar //0
     //1
-    //2-> overlay
+    //2->
     //3->flood
     //4->Envia vizinhos (inicializar )
     //5->Pedir stream (percorre até ao sv)

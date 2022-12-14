@@ -1,9 +1,7 @@
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.net.*;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Node {
 
@@ -21,10 +19,14 @@ public class Node {
     //para stream a partir do nodo
 
     DatagramPacket rcvdp; //UDP packet received from the server (to receive)
-    DatagramSocket RTPsocket; //socket to be used to send and receive UDP packet
+    DatagramSocket RTPsocketEnviar;//socket to be used to send and receive UDP packet
+
+    DatagramSocket RTPsocketReceber;
     static int RTP_RCV_PORT = 25000; //port where the client will receive the RTP packets
     Timer cTimer; //timer used to receive data from the UDP socket
     byte[] cBuf;
+
+    Integer teste;
 
 
     public Node(InetAddress ipserver) throws IOException {
@@ -35,7 +37,13 @@ public class Node {
 
         socketEnviar = new DatagramSocket(4000);
         socketReceber = new DatagramSocket(4321);
-        RTPsocket = new DatagramSocket(RTP_RCV_PORT);
+
+        RTPsocketEnviar = new DatagramSocket(25000);
+        RTPsocketReceber = new DatagramSocket(30000);
+
+         this.teste= 0;
+
+        this.cBuf = new byte[15000];
         //RTPsocket = new DatagramSocket(6000);
 
        // this.socket1 = new DatagramSocket(3210);
@@ -61,6 +69,45 @@ public class Node {
             }
         }).start();
 
+        //if(teste==1){}
+
+        new Thread(() -> { // THREAD PARA receber e enviar pacotes RTP
+            try {
+
+                while(true) {
+
+                    //Thread.sleep(1000);
+
+                    rcvdp = new DatagramPacket(cBuf, cBuf.length);
+                    RTPsocketReceber.receive(rcvdp);
+
+                    estadoStreamNodo=1;
+
+                    System.out.println("node: Recebi um pacote RTP do ip [ " + rcvdp.getAddress() + " ]");
+
+                    RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
+
+                    for(InetAddress quemQuer : destinosStream){
+
+                        int packet_length = rtp_packet.getlength();
+
+                        byte[] packetBits = new byte[packet_length];
+                        rtp_packet.getpacket(packetBits);
+
+                        DatagramPacket senddp = new DatagramPacket(packetBits, packet_length, quemQuer,30000 );
+                        RTPsocketEnviar.send(senddp);
+
+                        System.out.println("node: Stream enviada para o ip [ "+ quemQuer.toString()+ " ]");
+
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }).start();
+
+
+
         new Thread(() -> { // THREAD PARa receber msg do cliente e enviar ou pedir stream ao nodo anterior
             try {
                 while(true){
@@ -70,12 +117,12 @@ public class Node {
                     DatagramPacket responseO = new DatagramPacket(data, data.length); //novos nodos na rede
                     socketReceber.receive(responseO);
 
-                    System.out.println("node: recebi um pacote! msg(1/2)");
+                    //ystem.out.println("node: recebi um pacote! msg(1/2)");
 
                     data = responseO.getData();
                     Packet pReceive = new Packet(data);
 
-                    System.out.println("node: recebi um pacote do tipo " + pReceive.getMsgType() + " do ip [ " + responseO.getAddress() + " ] msg(2/2)");
+                    System.out.println("node: recebi um pacote do tipo " + pReceive.getMsgType() + " do ip [ " + responseO.getAddress() + " ] ");
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                     if(pReceive.getMsgType()==5) {//cliente pede stream
 
@@ -90,49 +137,31 @@ public class Node {
                             //byte[] dataNew = pStream.serialize();
 
                             InetAddress maisProximo = null;
+
                             int v = 999;
+
                             for (Map.Entry<InetAddress, Integer> e : tabelaCusto.entrySet()) {//ver qual nodo está mais proximo
-                                if (e.getValue() < v) maisProximo = e.getKey();
+                                if (e.getValue() < v) {
+                                    v = e.getValue();
+                                    maisProximo = e.getKey();
+                                }
                             }
+
+                            System.out.println("node: Vou pedir stream ao IP [ "+ maisProximo + " ]");
 
                             DatagramPacket newNode = new DatagramPacket(pStream.serialize(), pStream.serialize().length, maisProximo, 4321);
                             socketEnviar.send(newNode);
 
-                        }else{//nodo ja tem streaming
+                            teste=1;
 
-                            new Thread(() -> { // THREAD PARA receber e enviar pacotes RTP
-                                try {
+                            System.out.println("node: Pedido de stream enviado!");
 
-                                    while(true) {
+                        }else if(estadoStreamNodo==1){//nodo ja tem streaming
 
-                                        rcvdp = new DatagramPacket(cBuf, cBuf.length);
-                                        RTPsocket.receive(rcvdp);
+                            System.out.println("node: Já tenho stream!");
 
-                                        estadoStreamNodo=1;
 
-                                        System.out.println("node: Recebi um pacote RTP do ip [ " + rcvdp.getAddress() + " ]");
-
-                                        RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
-
-                                        for(InetAddress quemQuer : destinosStream){
-
-                                            int packet_length = rtp_packet.getlength();
-
-                                            byte[] packetBits = new byte[packet_length];
-                                            rtp_packet.getpacket(packetBits);
-
-                                            DatagramPacket senddp = new DatagramPacket(packetBits, packet_length, quemQuer, RTP_RCV_PORT);
-                                            RTPsocket.send(senddp);
-
-                                            System.out.println("node: Stream enviada para o ip [ "+ quemQuer.toString()+ " ]");
-
-                                        }
-                                    }
-                                } catch (IOException e) {
-                                    e.printStackTrace();
-                                }
-                            }).start();
-                        }
+                        }else System.out.println("node: ERRO! recebi pedido tipo 5 mas n funfa!");
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                     }else if (pReceive.getMsgType() == 4) {//recebe vizinhos a partir do servidor
 
@@ -151,13 +180,14 @@ public class Node {
                     }else if(pReceive.getMsgType()==3){//FLOODING MSG
 
                         System.out.println("node: Começar o flood! (Tipo 3)");
-                        System.out.println();
+
 
                         InetAddress nodoFloodRecebido = responseO.getAddress();
 
                         int custo = pReceive.getCusto();
 
                         System.out.println("node: Recebi de: [ " + nodoFloodRecebido + " ] com custo : " + custo);
+                        System.out.println();
 
                         if (prev_node == null) { // 1ª iteração
                             prev_node = nodoFloodRecebido;
@@ -174,11 +204,13 @@ public class Node {
                                     socketEnviar.send(pResponse);
 
                                     System.out.println("node: flooding to [ "+ inet.toString() + " ]");
+
                                 }
                             }
+                            System.out.println();
                         }else { //Vezes seguintes a chegar ao nodo
                             int custoAnterior = tabelaCusto.get(prev_node);
-                            if (custo < custoAnterior) { //Atualizar o antecessor
+                            if (custo <= custoAnterior) { //Atualizar o antecessor
                                 prev_node = nodoFloodRecebido;
                                 System.out.println("node: ITERAÇÃO X : A enviar para vizinhos | custo : " + custo);
 
@@ -190,8 +222,12 @@ public class Node {
                                         byte[] dataResponse = msg1.serialize();
                                         DatagramPacket pktResponse = new DatagramPacket(dataResponse, dataResponse.length, inet, 4321);
                                         socketEnviar.send(pktResponse);
+
+                                        System.out.println("node: flooding to [ "+ inet.toString() + " ]");
+
                                     }
                                 }
+                                System.out.println();
                             }
 
                             if (tabelaCusto.containsKey(nodoFloodRecebido)) { // Atualização do valor
@@ -201,7 +237,17 @@ public class Node {
                                 tabelaCusto.put(nodoFloodRecebido, custo);
                             }
                         }
-                    } else System.out.println("ERRO: mensagem de tipo desconhecido!)");
+                    } else if (pReceive.getMsgType() == 6) {//recebe vizinhos a partir do servidor
+
+                        System.out.println("node: Notificação de stream (Tipo 6)");
+                        System.out.println();
+                        //
+
+                        //thread rtp
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+                    }else System.out.println("ERRO: mensagem de tipo desconhecido!)");
                             //enviar stream ao cliente
 
                     }

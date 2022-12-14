@@ -53,7 +53,7 @@ public class Servidor extends JFrame implements ActionListener{
                 List<InetAddress> vizinhos = database.getNeighbours(ipserver);
 
                 System.out.println();
-                System.out.println("server: Vizinhos:");
+                System.out.println("sv: Vizinhos:");
                 for(InetAddress xxx : vizinhos){
                     System.out.println(xxx.toString());
                 }
@@ -89,17 +89,6 @@ public class Servidor extends JFrame implements ActionListener{
                             lockNodosRede.unlock();
                         }
 
-                        /*try {
-                            lockNodosRede.lock();
-
-                            if (nodosRede.containsAll(database.getAllNodos())) {//1 vez | ?????????????????????????
-                                condNodos.signalAll();
-                                System.out.println("sv: A Iniciar Flood!");
-                            }
-                        } finally{
-                            lockNodosRede.unlock();
-                        }*/
-
                         List<InetAddress> listVizinhos = database.getNeighbours(nodeAdr);
 
                         Packet send = new Packet(4,0, listVizinhos); //MSG tipo 4 -> Sv envia vizinhos
@@ -110,13 +99,26 @@ public class Servidor extends JFrame implements ActionListener{
 
                     } else if(p.getMsgType() == 5){//pedir streaming
 
+                        System.out.print("sv: Recebi pedido tipo 5 (pedido de stream) do IP [ "+nodeAdr+" ]");
+
                         destinosStream.add(nodeAdr);
+
+                        System.out.println("| Nodo adicionado aos destinos!");
 
                         tabelaEstado.put(nodeAdr,1);//nodo vai passar a trasnmitir stream
 
+                        Packet debug = new Packet(6,0, null); //MSG tipo 6 notificacao
+
+                        DatagramPacket pResponse = new DatagramPacket(debug.serialize(), debug.serialize().length, nodeAdr, 4321);
+                        socketEnviar.send(pResponse);
+                        System.out.println("sv: Enviei pacote tipo 6 (Notificação de stream) ao nodo [ " + nodeAdr + " ]");
+
+                        //System.out.println("-----------------------------"+destinosStream.isEmpty());
                         new Thread(() -> { //Thread encarregue de fazer stream
                             try {
-                                streaming();
+                                streaming(destinosStream);
+
+                                System.out.println("!!!!!!!!!!!!!!!!!!!!! after streaming() method !!!!!!!!!!!!!!!!!!!!!!!! ");
 
                             } catch(Exception e) {
                                 e.printStackTrace();
@@ -134,15 +136,6 @@ public class Servidor extends JFrame implements ActionListener{
 
         new Thread(() -> { //FLOODING
             try {
-                /*try {
-                    lockNodosRede.lock();
-
-                    while (!nodosRede.containsAll(database.getAllNodos()))
-                        condNodos.await();  //A thread fica adormecida enquanto não temos todos os nodos
-
-                } finally{
-                    lockNodosRede.unlock();
-                }*/
                 while (true) {
                     Thread.sleep(1000);//os nodos precisam receber primeiro os seus vizinhos
                     System.out.println("sv: Flood Iniciado!");
@@ -175,7 +168,9 @@ public class Servidor extends JFrame implements ActionListener{
     //RTP variables:
     //----------------
     DatagramPacket senddp; //UDP packet containing the video frames (to send)A
-    DatagramSocket RTPsocket; //socket to be used to send and receive UDP packet
+    DatagramSocket RTPsocketEnviar;
+
+    DatagramSocket RTPsocketReceber;//socket to be used to send and receive UDP packet
     int RTP_dest_port = 25000; //destination port for RTP packets
     InetAddress ClientIPAddr; //Client IP address
 
@@ -197,7 +192,7 @@ public class Servidor extends JFrame implements ActionListener{
     //--------------------------
 
 
-    public Servidor() throws Exception{
+    public Servidor(List<InetAddress> destinos) throws Exception{
         //init Frame
         super("Servidor");
 
@@ -207,10 +202,14 @@ public class Servidor extends JFrame implements ActionListener{
         sTimer.setCoalesce(true);
         sBuf = new byte[15000]; //allocate memory for the sending buffer
 
+
+
         try {
-            RTPsocket = new DatagramSocket(); //init RTP socket
-            ClientIPAddr = InetAddress.getByName("127.0.0.1");
-            System.out.println("Servidor: socket " + ClientIPAddr);
+            destinosStream = destinos;
+            //List<InetAddress> destinos = this.destinosStream;
+            RTPsocketEnviar = new DatagramSocket(25000); //init RTP socket
+            //ClientIPAddr = InetAddress.getByName("127.0.0.1");
+            System.out.println("Servidor: RTPsocket aberto ");
             video = new VideoStream(VideoFileName); //init the VideoStream object:
             System.out.println("Servidor: vai enviar video da file " + VideoFileName);
 
@@ -238,14 +237,14 @@ public class Servidor extends JFrame implements ActionListener{
     //------------------------------------
     //main
     //------------------------------------
-    public static void streaming() throws Exception {
+    public static void streaming(List<InetAddress> destinos) throws Exception {
 
         VideoFileName = "movie.Mjpeg";
 
         File f = new File(VideoFileName);
         if (f.exists()) {
             //Create a Main object
-            Servidor s = new Servidor();
+            Servidor s = new Servidor(destinos);
             //show GUI: (opcional!)
             //s.pack();
             //s.setVisible(true);
@@ -265,6 +264,8 @@ public class Servidor extends JFrame implements ActionListener{
             imagenb++;
 
             try {
+
+
                 //get next frame to send from the video, as well as its size
                 int image_length = video.getnextframe(sBuf);
 
@@ -277,12 +278,20 @@ public class Servidor extends JFrame implements ActionListener{
                 //retrieve the packet bitstream and store it in an array of bytes
                 byte[] packet_bits = new byte[packet_length];
                 rtp_packet.getpacket(packet_bits);
+                System.out.println("------------------------------------");
+
+                //System.out.println(destinosStream.isEmpty());
 
 
-                for(InetAddress nd : destinosStream){
+                for(InetAddress nd : destinosStream){//envia para os nodos que pediram
 
-                    senddp = new DatagramPacket(packet_bits, packet_length, nd, RTP_dest_port);///---------------------------------------------------------<
-                    RTPsocket.send(senddp);
+                    System.out.println("22222222222222222222222222222222222");
+
+                    senddp = new DatagramPacket(packet_bits, packet_length, nd, 30000);///---------------------------------------------------------<
+                    RTPsocketEnviar.send(senddp);
+
+                    System.out.println("3333333333333333333333333333333333");
+
 
                 }
                 //send the packet as a DatagramPacket over the UDP socket
@@ -296,7 +305,7 @@ public class Servidor extends JFrame implements ActionListener{
             }
             catch(Exception ex)
             {
-                System.out.println("Exception caught: "+ex);
+                System.out.println("Exception caught: ERRO!"+ex);
                 System.exit(0);
             }
         }

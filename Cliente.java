@@ -30,7 +30,7 @@ public class Cliente {
     //RTP variables:
     //----------------
     DatagramPacket rcvdp; //UDP packet received from the server (to receive)
-    DatagramSocket RTPsocket; //socket to be used to send and receive UDP packet
+    DatagramSocket RTPsocketReceber; //socket to be used to send and receive UDP packet
     static int RTP_RCV_PORT = 25000; //port where the client will receive the RTP packets
 
     Timer cTimer; //timer used to receive data from the UDP socket
@@ -83,7 +83,9 @@ public Cliente(InetAddress ipserver) throws SocketException {
                     }
                 } else if (pResposta.getMsgType() == 3) {//flood
 
-                    System.out.println("client: Recebi pacote tipo 3 (flood) de " + response.getAddress());
+                    int custo = pResposta.getCusto();
+
+                    System.out.println("client: Recebi pacote tipo 3 (flood) do IP: [ " + response.getAddress() + " ] com custo : " + custo);
 
                 } else {
                     System.out.println("ERRO: mensagem de tipo desconhecido!)");
@@ -95,7 +97,11 @@ public Cliente(InetAddress ipserver) throws SocketException {
         }
     }).start();
 
-    System.out.println("Pedir STREAM do video? 1 : yes | 0 : no");
+    System.out.println();
+    System.out.println("<||||||||||||||||||||||||||||||||||||||||||||||||||||||||>");
+    System.out.println("PEDIR STREAM DO VIDEO? type 1 for yes, 0 for no");
+    System.out.println("<||||||||||||||||||||||||||||||||||||||||||||||||||||||||>");
+    System.out.println();
     Scanner s = new Scanner(System.in);
     int i= s.nextInt();
     //boolean testa=false;
@@ -109,10 +115,13 @@ public Cliente(InetAddress ipserver) throws SocketException {
                 //System.out.println("tou aqui");
                 socketEnviar.send(request);
 
+                System.out.println("client: Pedido de stream enviado ao IP: [ "+ router +" ]");
+
                 new Thread(() -> {
                     try {
 
                         streamingClient();
+                        System.out.println("!!!!!!!!!!!!! after streamingClient() method !!!!!!!!!!!!!!!!");
 
                     } catch (IOException e) {
                         e.printStackTrace();
@@ -189,8 +198,8 @@ public Cliente(InetAddress ipserver) throws SocketException {
 
         try {
             // socket e video
-            RTPsocket = new DatagramSocket(RTP_RCV_PORT); //init RTP socket (o mesmo para o cliente e servidor)
-            RTPsocket.setSoTimeout(5000); // setimeout to 5s
+            RTPsocketReceber = new DatagramSocket(30000); //init RTP socket (o mesmo para o cliente e servidor)
+            RTPsocketReceber.setSoTimeout(5000); // setimeout to 5s
         } catch (SocketException e) {
             System.out.println("Cliente: erro no socket: " + e.getMessage());
         }
@@ -243,7 +252,7 @@ public Cliente(InetAddress ipserver) throws SocketException {
 
             try{
                 //receive the DP from the socket:
-                RTPsocket.receive(rcvdp);
+                RTPsocketReceber.receive(rcvdp);
 
                 //create an RTPpacket object from the DP
                 RTPpacket rtp_packet = new RTPpacket(rcvdp.getData(), rcvdp.getLength());
