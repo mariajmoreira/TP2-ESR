@@ -22,6 +22,8 @@ public class Node {
     DatagramSocket RTPsocketEnviar;//socket to be used to send and receive UDP packet
 
     DatagramSocket RTPsocketReceber;
+
+    DatagramSocket socketPedirVizinhos;
     static int RTP_RCV_PORT = 25000; //port where the client will receive the RTP packets
     Timer cTimer; //timer used to receive data from the UDP socket
     byte[] cBuf;
@@ -38,10 +40,11 @@ public class Node {
         socketEnviar = new DatagramSocket(4000);
         socketReceber = new DatagramSocket(4321);
 
+        socketPedirVizinhos = new DatagramSocket(5000);
+
         RTPsocketEnviar = new DatagramSocket(25000);
         RTPsocketReceber = new DatagramSocket(30000);
 
-         this.teste= 0;
 
         this.cBuf = new byte[15000];
         //RTPsocket = new DatagramSocket(6000);
@@ -61,6 +64,7 @@ public class Node {
                 Packet p = new Packet(2,0,null);
 
                 DatagramPacket request = new DatagramPacket(p.serialize(), p.serialize().length, ipserver, 4321);
+                
                 socketEnviar.send(request);
                 System.out.println("node: Pedido tipo 2 (Vizinhos) enviado ao servidor!");
 
@@ -152,7 +156,7 @@ public class Node {
                             DatagramPacket newNode = new DatagramPacket(pStream.serialize(), pStream.serialize().length, maisProximo, 4321);
                             socketEnviar.send(newNode);
 
-                            teste=1;
+                            //teste=1;
 
                             System.out.println("node: Pedido de stream enviado!");
 
@@ -175,12 +179,10 @@ public class Node {
                         for(InetAddress vv : pReceive.getVizinhos()){
                             System.out.println(vv.toString());
                         }
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
                     }else if(pReceive.getMsgType()==3){//FLOODING MSG
 
                         System.out.println("node: Começar o flood! (Tipo 3)");
-
 
                         InetAddress nodoFloodRecebido = responseO.getAddress();
 
@@ -204,7 +206,6 @@ public class Node {
                                     socketEnviar.send(pResponse);
 
                                     System.out.println("node: flooding to [ "+ inet.toString() + " ]");
-
                                 }
                             }
                             System.out.println();
@@ -224,7 +225,6 @@ public class Node {
                                         socketEnviar.send(pktResponse);
 
                                         System.out.println("node: flooding to [ "+ inet.toString() + " ]");
-
                                     }
                                 }
                                 System.out.println();
@@ -237,7 +237,7 @@ public class Node {
                                 tabelaCusto.put(nodoFloodRecebido, custo);
                             }
                         }
-                    } else if (pReceive.getMsgType() == 6) {//recebe vizinhos a partir do servidor
+                    } /*else if (pReceive.getMsgType() == 6) {//recebe vizinhos a partir do servidor
 
                         System.out.println("node: Notificação de stream (Tipo 6)");
                         System.out.println();
@@ -247,7 +247,7 @@ public class Node {
 
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-                    }else System.out.println("ERRO: mensagem de tipo desconhecido!)");
+                    }*/else System.out.println("ERRO: mensagem de tipo desconhecido!)");
                             //enviar stream ao cliente
 
                     }

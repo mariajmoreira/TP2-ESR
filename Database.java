@@ -11,7 +11,7 @@ public class Database {
 
      public Database() throws IOException {
         System.out.println("Database Criada!");
-        parser("configFile.txt");
+        parser("configFile2.txt");
     
         System.out.println("CONFIG: " + configFile.toString());
     
@@ -30,6 +30,7 @@ public class Database {
 
     BufferedReader reader = new BufferedReader(new FileReader(path));
     String line = reader.readLine();
+    System.out.println(line);
 
     this.configFile = new HashMap<>();
 
@@ -41,7 +42,7 @@ public class Database {
 
         String[] ipnodo = partes[0].split(",");
 
-        line = reader.readLine();
+        //
 
         InetAddress inetnodo = InetAddress.getByName(ipnodo[1]);
 
@@ -56,9 +57,12 @@ public class Database {
             
           lista.add(inetvizinho);
 
-      }
+        }
+
 
       this.configFile.put(inetnodo,lista);
+
+        line = reader.readLine();
   }
   System.out.println("Parsing done!");
   reader.close();

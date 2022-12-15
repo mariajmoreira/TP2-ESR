@@ -107,11 +107,11 @@ public class Servidor extends JFrame implements ActionListener{
 
                         tabelaEstado.put(nodeAdr,1);//nodo vai passar a trasnmitir stream
 
-                        Packet debug = new Packet(6,0, null); //MSG tipo 6 notificacao
+                        /*Packet debug = new Packet(6,0, null); //MSG tipo 6 notificacao
 
                         DatagramPacket pResponse = new DatagramPacket(debug.serialize(), debug.serialize().length, nodeAdr, 4321);
                         socketEnviar.send(pResponse);
-                        System.out.println("sv: Enviei pacote tipo 6 (Notificação de stream) ao nodo [ " + nodeAdr + " ]");
+                        System.out.println("sv: Enviei pacote tipo 6 (Notificação de stream) ao nodo [ " + nodeAdr + " ]");*/
 
                         //System.out.println("-----------------------------"+destinosStream.isEmpty());
                         new Thread(() -> { //Thread encarregue de fazer stream
@@ -131,7 +131,6 @@ public class Servidor extends JFrame implements ActionListener{
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }
-
         }).start();
 
         new Thread(() -> { //FLOODING
@@ -285,12 +284,12 @@ public class Servidor extends JFrame implements ActionListener{
 
                 for(InetAddress nd : destinosStream){//envia para os nodos que pediram
 
-                    System.out.println("22222222222222222222222222222222222");
+                    //System.out.println("22222222222222222222222222222222222");
 
                     senddp = new DatagramPacket(packet_bits, packet_length, nd, 30000);///---------------------------------------------------------<
                     RTPsocketEnviar.send(senddp);
 
-                    System.out.println("3333333333333333333333333333333333");
+                    //System.out.println("3333333333333333333333333333333333");
 
 
                 }
